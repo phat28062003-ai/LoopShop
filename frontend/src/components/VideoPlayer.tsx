@@ -10,6 +10,7 @@ interface VideoPlayerProps {
   onOpenProduct: (product: Product) => void;
   onOpenReport: (video: VideoItem) => void;
   onOpenComments: (videoId: number) => void;
+  onOpenShare?: (video: VideoItem) => void;
   onStartChatWithCreator?: (creatorName: string) => void;
   onLike: (videoId: number) => void;
 }
@@ -22,6 +23,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onOpenProduct,
   onOpenReport,
   onOpenComments,
+  onOpenShare,
   onStartChatWithCreator,
   onLike,
 }) => {
@@ -197,14 +199,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </button>
 
         {/* Share Button */}
-        <div className="flex flex-col items-center text-white">
-          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 transition-all text-white">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenShare) onOpenShare(video);
+          }}
+          className="flex flex-col items-center text-white cursor-pointer group"
+          title="Chia sẻ video"
+        >
+          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md group-hover:bg-black/60 transition-all text-white">
             <Share2 className="w-7 h-7" />
           </div>
           <span className="text-xs font-semibold mt-1 drop-shadow-md">
             {video.shares_count}
           </span>
-        </div>
+        </button>
 
         {/* Report / Safety Button */}
         <button

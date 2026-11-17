@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, TrendingUp, DollarSign, Package, Eye, EyeOff, CheckCircle2, RefreshCw, LogOut } from 'lucide-react';
+import { 
+  ShieldAlert, 
+  TrendingUp, 
+  DollarSign, 
+  Package, 
+  Eye, 
+  EyeOff, 
+  CheckCircle2, 
+  RefreshCw, 
+  LogOut,
+  Send,
+  BellRing,
+  Key,
+  MessageSquare,
+  Sparkles,
+  Check
+} from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order } from '../types';
 import { api } from '../services/api';
 
@@ -12,8 +28,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'videos' | 'orders'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'videos' | 'orders' | 'telegram'>('overview');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Telegram state
+  const [telegramToken, setTelegramToken] = useState<string>(() => localStorage.getItem('loopshop_telegram_token') || '');
+  const [telegramChatId, setTelegramChatId] = useState<string>(() => localStorage.getItem('loopshop_telegram_chatid') || '');
+  const [isTelegramConfigured, setIsTelegramConfigured] = useState<boolean>(false);
+  const [isSavingTelegram, setIsSavingTelegram] = useState<boolean>(false);
+  const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
+  const [telegramStatusMessage, setTelegramStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadAdminData = async () => {
     try {
@@ -28,10 +52,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setVideos(videosData);
       setReports(reportsData);
       setOrders(ordersData);
+
+      // Load telegram config
+      try {
+        const tgConfig = await api.getTelegramConfig();
+        if (tgConfig.is_configured) {
+          setIsTelegramConfigured(true);
+          if (!telegramChatId && tgConfig.chat_id) {
+            setTelegramChatId(tgConfig.chat_id);
+          }
+        }
+      } catch {
+        // ignore
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveTelegram = async () => {
+    if (!telegramToken.trim() || !telegramChatId.trim()) {
+      setTelegramStatusMessage({ type: 'error', text: 'Vui lòng điền đủ Bot Token và Chat ID!' });
+      return;
+    }
+    try {
+      setIsSavingTelegram(true);
+      setTelegramStatusMessage(null);
+      await api.saveTelegramConfig({
+        bot_token: telegramToken.trim(),
+        chat_id: telegramChatId.trim()
+      });
+      localStorage.setItem('loopshop_telegram_token', telegramToken.trim());
+      localStorage.setItem('loopshop_telegram_chatid', telegramChatId.trim());
+      setIsTelegramConfigured(true);
+      setTelegramStatusMessage({ type: 'success', text: 'Đã lưu cấu hình Telegram Bot thành công!' });
+    } catch {
+      setTelegramStatusMessage({ type: 'error', text: 'Không thể lưu cấu hình Telegram.' });
+    } finally {
+      setIsSavingTelegram(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    try {
+      setIsTestingTelegram(true);
+      setTelegramStatusMessage(null);
+      const res = await api.testTelegramNotification({
+        bot_token: telegramToken.trim() || undefined,
+        chat_id: telegramChatId.trim() || undefined,
+      });
+      if (res.success) {
+        setTelegramStatusMessage({ type: 'success', text: 'Đã gửi tin nhắn test thành công! Hãy kiểm tra ứng dụng Telegram của bạn.' });
+      } else {
+        setTelegramStatusMessage({ type: 'error', text: `Gửi test thất bại: ${res.error || res.message}` });
+      }
+    } catch {
+      setTelegramStatusMessage({ type: 'error', text: 'Không thể kết nối đến máy chủ gửi tin nhắn.' });
+    } finally {
+      setIsTestingTelegram(false);
     }
   };
 
@@ -71,6 +151,111 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const pendingReports = reports.filter(r => r.status === 'pending');
+
+  const renderTelegramSection = () => (
+    <div className="bg-neutral-900 rounded-2xl p-5 border border-neutral-800 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-neutral-800 gap-2">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <BellRing className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-white flex items-center space-x-2">
+              <span>Thông báo Đơn hàng & VietQR qua Telegram Bot</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                isTelegramConfigured ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-neutral-800 text-neutral-400'
+              }`}>
+                {isTelegramConfigured ? 'Đang hoạt động' : 'Chưa kích hoạt'}
+              </span>
+            </h3>
+            <p className="text-xs text-neutral-400">
+              Nhận thông báo ting ting tức thì khi có khách đặt hàng hoặc chuyển khoản VietQR thành công
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {telegramStatusMessage && (
+        <div className={`p-3 rounded-xl text-xs font-medium flex items-center space-x-2 ${
+          telegramStatusMessage.type === 'success' 
+            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+        }`}>
+          {telegramStatusMessage.type === 'success' ? <Check className="w-4 h-4 flex-shrink-0" /> : <ShieldAlert className="w-4 h-4 flex-shrink-0" />}
+          <span>{telegramStatusMessage.text}</span>
+        </div>
+      )}
+
+      {/* Inputs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-medium text-neutral-300 mb-1.5 flex items-center space-x-1">
+            <Key className="w-3.5 h-3.5 text-sky-400" />
+            <span>Telegram Bot Token</span>
+          </label>
+          <input
+            type="text"
+            placeholder="Ví dụ: 7891234567:AAH..."
+            value={telegramToken}
+            onChange={(e) => setTelegramToken(e.target.value)}
+            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors font-mono"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-neutral-300 mb-1.5 flex items-center space-x-1">
+            <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+            <span>Chat ID của bạn</span>
+          </label>
+          <input
+            type="text"
+            placeholder="Ví dụ: 123456789 hoặc -100..."
+            value={telegramChatId}
+            onChange={(e) => setTelegramChatId(e.target.value)}
+            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors font-mono"
+          />
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleSaveTelegram}
+            disabled={isSavingTelegram}
+            className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>{isSavingTelegram ? 'Đang lưu...' : 'Lưu cấu hình'}</span>
+          </button>
+
+          <button
+            onClick={handleTestTelegram}
+            disabled={isTestingTelegram}
+            className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center space-x-1.5 transition-all active:scale-95 disabled:opacity-50 border border-neutral-700 cursor-pointer"
+          >
+            <Send className={`w-3.5 h-3.5 text-sky-400 ${isTestingTelegram ? 'animate-spin' : ''}`} />
+            <span>{isTestingTelegram ? 'Đang gửi test...' : 'Gửi tin nhắn test'}</span>
+          </button>
+        </div>
+
+        <div className="text-[11px] text-neutral-400 flex items-center space-x-1">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>Tự động gửi khi có đơn hàng mới & thanh toán VietQR</span>
+        </div>
+      </div>
+
+      {/* How to setup guide */}
+      <div className="p-3 bg-neutral-950/60 rounded-xl border border-neutral-800/80 text-[11px] text-neutral-400 space-y-1.5">
+        <p className="font-semibold text-neutral-300">💡 Hướng dẫn 2 bước nhận thông báo về điện thoại:</p>
+        <ol className="list-decimal list-inside space-y-1 text-neutral-400">
+          <li>Mở Telegram tìm bot <span className="text-sky-400 font-mono">@BotFather</span> → gõ <code className="text-amber-300">/newbot</code> để tạo bot và lấy <b>Token</b>.</li>
+          <li>Tìm bot <span className="text-sky-400 font-mono">@userinfobot</span> trên Telegram → bấm Start để lấy <b>Chat ID</b> cá nhân của bạn.</li>
+          <li>Dán Token & Chat ID vào 2 ô phía trên rồi bấm <b>"Gửi tin nhắn test"</b> để kiểm tra chuông ting ting!</li>
+        </ol>
+      </div>
+    </div>
+  );
 
   return (
     <div className="w-full h-full bg-neutral-950 text-white overflow-y-auto p-4 md:p-6 pb-24">
@@ -165,6 +350,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           <Package className="w-3.5 h-3.5" />
           <span>Đơn hàng & VietQR ({orders.length})</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('telegram')}
+          className={`py-2 px-4 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+            activeTab === 'telegram'
+              ? 'bg-rose-500 text-white font-bold shadow'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <BellRing className="w-3.5 h-3.5" />
+          <span>Thông báo Telegram Bot</span>
+          <span className={`w-2 h-2 rounded-full ${isTelegramConfigured ? 'bg-emerald-400' : 'bg-neutral-600'}`}></span>
+        </button>
       </div>
 
       {/* Main Content Area */}
@@ -232,6 +430,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </p>
               </div>
             </div>
+
+            {/* Telegram Notification Bot Card */}
+            {renderTelegramSection()}
           </div>
         )}
 
@@ -456,6 +657,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'telegram' && (
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-neutral-200">
+              Cài đặt & Thử nghiệm Thông báo Telegram Bot
+            </h2>
+            {renderTelegramSection()}
           </div>
         )}
       </div>

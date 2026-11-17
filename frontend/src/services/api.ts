@@ -5,8 +5,16 @@ const API_BASE = `${BASE_URL}/api`;
 
 export const api = {
   // Video endpoints
-  async getVideos(isAdmin: boolean = false): Promise<VideoItem[]> {
-    const res = await fetch(`${API_BASE}/videos/${isAdmin ? '?admin=true' : ''}`);
+  async getVideos(params?: { isAdmin?: boolean; category?: string; search?: string } | boolean): Promise<VideoItem[]> {
+    let url = `${API_BASE}/videos/?`;
+    if (typeof params === 'boolean') {
+      if (params) url += 'admin=true&';
+    } else if (params) {
+      if (params.isAdmin) url += 'admin=true&';
+      if (params.category && params.category !== 'all') url += `category=${encodeURIComponent(params.category)}&`;
+      if (params.search) url += `search=${encodeURIComponent(params.search)}&`;
+    }
+    const res = await fetch(url.replace(/[?&]$/, ''));
     if (!res.ok) throw new Error('Không thể tải danh sách video');
     return res.json();
   },
@@ -17,6 +25,15 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) throw new Error('Không thể thích video');
+    return res.json();
+  },
+
+  async shareVideo(id: number): Promise<{ shares_count: number }> {
+    const res = await fetch(`${API_BASE}/videos/${id}/share/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('Không thể ghi nhận lượt chia sẻ');
     return res.json();
   },
 
@@ -249,6 +266,33 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Không thể gửi tin nhắn');
+    return res.json();
+  },
+
+  // Telegram endpoints
+  async getTelegramConfig(): Promise<{ is_configured: boolean; bot_token_masked: string; chat_id: string }> {
+    const res = await fetch(`${API_BASE}/telegram/config/`);
+    if (!res.ok) throw new Error('Không thể tải cấu hình Telegram');
+    return res.json();
+  },
+
+  async saveTelegramConfig(data: { bot_token: string; chat_id: string }): Promise<{ success: boolean; message: string; is_configured: boolean; chat_id: string }> {
+    const res = await fetch(`${API_BASE}/telegram/config/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể lưu cấu hình Telegram');
+    return res.json();
+  },
+
+  async testTelegramNotification(data: { bot_token?: string; chat_id?: string; message?: string }): Promise<{ success: boolean; message: string; error?: string }> {
+    const res = await fetch(`${API_BASE}/telegram/test/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể gửi kiểm tra Telegram');
     return res.json();
   },
 };

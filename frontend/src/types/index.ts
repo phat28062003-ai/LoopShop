@@ -3,6 +3,7 @@ export interface Product {
   seller_name: string;
   title: string;
   description: string;
+  category?: string;
   price: number;
   original_price: number | null;
   image_url: string;
@@ -25,6 +26,7 @@ export interface VideoItem {
   uploader_avatar: string;
   title: string;
   description: string;
+  category?: string;
   video_url: string;
   thumbnail_url: string;
   likes_count: number;

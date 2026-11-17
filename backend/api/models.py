@@ -1,11 +1,21 @@
 import uuid
 from django.db import models
 
+CATEGORY_CHOICES = [
+    ('all', 'Tất cả'),
+    ('tech', 'Công nghệ ⚡'),
+    ('fashion', 'Thời trang 👕'),
+    ('lifestyle', 'Đời sống 🏠'),
+    ('food', 'Ẩm thực 🍔'),
+    ('beauty', 'Làm đẹp 💄'),
+]
+
 
 class Product(models.Model):
     seller_name = models.CharField(max_length=100, default='Phát Official Store')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='tech')
     price = models.DecimalField(max_digits=12, decimal_places=0)  # VND
     original_price = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
     image_url = models.CharField(max_length=500)
@@ -24,6 +34,7 @@ class Video(models.Model):
     uploader_avatar = models.CharField(max_length=500, blank=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='tech')
     video_url = models.CharField(max_length=500)
     thumbnail_url = models.CharField(max_length=500, blank=True)
     likes_count = models.PositiveIntegerField(default=120)

@@ -21,6 +21,7 @@ from .serializers import (
     ConversationSerializer,
     MessageSerializer
 )
+from .telegram import send_telegram_notification, get_telegram_config, save_telegram_config
 
 
 class VideoFeedViewSet(viewsets.ModelViewSet):
@@ -36,6 +37,20 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         is_admin_mode = self.request.query_params.get('admin', 'false').lower() == 'true'
         if not is_admin_mode:
             qs = qs.filter(is_approved=True, is_hidden=False)
+
+        category = self.request.query_params.get('category', '').strip()
+        if category and category != 'all':
+            qs = qs.filter(Q(category=category) | Q(products__category=category)).distinct()
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(uploader_name__icontains=search) |
+                Q(products__title__icontains=search)
+            ).distinct()
+
         return qs
 
     @action(detail=True, methods=['post'])
@@ -44,6 +59,14 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         video.likes_count += 1
         video.save(update_fields=['likes_count'])
         return Response({'likes_count': video.likes_count, 'status': 'liked'})
+
+    @action(detail=True, methods=['post'])
+    def share(self, request, pk=None):
+        """Tăng số lượt chia sẻ của video"""
+        video = self.get_object()
+        video.shares_count += 1
+        video.save(update_fields=['shares_count'])
+        return Response({'shares_count': video.shares_count, 'status': 'shared'})
 
     @action(detail=True, methods=['post'])
     def toggle_hidden(self, request, pk=None):
@@ -139,12 +162,42 @@ class OrderViewSet(viewsets.ModelViewSet):
             return OrderCreateSerializer
         return OrderDetailSerializer
 
+    def perform_create(self, serializer):
+        order = serializer.save()
+        # Gửi thông báo Telegram tức thì cho Seller / Phát
+        items_summary = "\n".join([
+            f"  • {item.quantity}x {item.product_title} ({item.price:,.0f}đ)"
+            for item in order.items.all()
+        ])
+        msg = (
+            f"🛒 <b>ĐƠN HÀNG MỚI #{order.order_code}</b>\n\n"
+            f"👤 <b>Khách hàng:</b> {order.customer_name}\n"
+            f"📞 <b>SĐT:</b> <code>{order.customer_phone}</code>\n"
+            f"📍 <b>Địa chỉ:</b> {order.shipping_address}\n"
+            f"💰 <b>Tổng tiền:</b> <b>{order.total_amount:,.0f} VND</b>\n"
+            f"📦 <b>Sản phẩm:</b>\n{items_summary or '  • 1x Đơn hàng LoopShop'}\n"
+            f"💳 <b>Thanh toán:</b> Chuyển khoản VietQR\n\n"
+            f"⚡ <i>LoopShop đang đợi người mua chuyển khoản...</i>"
+        )
+        send_telegram_notification(msg)
+
     @action(detail=True, methods=['post'])
     def confirm_payment(self, request, pk=None):
         order = self.get_object()
         order.is_paid = True
         order.status = 'confirmed'
         order.save(update_fields=['is_paid', 'status', 'updated_at'])
+
+        msg = (
+            f"🎉 <b>XÁC NHẬN THANH TOÁN THÀNH CÔNG!</b>\n\n"
+            f"💵 <b>Mã đơn:</b> #{order.order_code}\n"
+            f"💰 <b>Số tiền:</b> {order.total_amount:,.0f} VND\n"
+            f"👤 <b>Khách hàng:</b> {order.customer_name} ({order.customer_phone})\n"
+            f"✅ <b>Trạng thái:</b> Đã xác nhận & Sẵn sàng đóng gói!\n\n"
+            f"🚀 <i>LoopShop VietQR Auto-Confirmed</i>"
+        )
+        send_telegram_notification(msg)
+
         return Response({
             'status': 'confirmed',
             'is_paid': True,
@@ -228,6 +281,17 @@ def vietqr_webhook(request):
         order.is_paid = True
         order.status = 'confirmed'
         order.save(update_fields=['is_paid', 'status', 'updated_at'])
+
+        msg = (
+            f"⚡ <b>TING TING! TỰ ĐỘNG KHỚP LỆNH VIETQR</b>\n\n"
+            f"💵 <b>Đơn hàng:</b> #{order.order_code}\n"
+            f"💰 <b>Số tiền nhận:</b> {order.total_amount:,.0f} VND\n"
+            f"👤 <b>Khách hàng:</b> {order.customer_name}\n"
+            f"🏦 <b>Nội dung CK:</b> <code>{content}</code>\n"
+            f"✅ Hệ thống đã tự động kích hoạt đơn hàng trong 3 giây!"
+        )
+        send_telegram_notification(msg)
+
         return Response({
             'success': True,
             'order_code': order.order_code,
@@ -345,3 +409,48 @@ class MessageViewSet(viewsets.ModelViewSet):
             conv = msg.conversation
             conv.last_message = msg.content[:100]
             conv.save(update_fields=['last_message', 'updated_at'])
+
+
+@api_view(['GET', 'POST'])
+def telegram_config_view(request):
+    """
+    Xem và lưu cấu hình Telegram Bot từ màn hình Admin
+    """
+    if request.method == 'POST':
+        bot_token = request.data.get('bot_token', '').strip()
+        chat_id = request.data.get('chat_id', '').strip()
+        saved = save_telegram_config(bot_token, chat_id)
+        return Response({
+            'success': True,
+            'message': 'Đã lưu cấu hình Telegram Bot thành công!',
+            'is_configured': bool(bot_token and chat_id),
+            'chat_id': chat_id
+        })
+
+    cfg = get_telegram_config()
+    token = cfg.get('bot_token', '')
+    masked_token = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else ('Đã lưu token' if token else '')
+    return Response({
+        'is_configured': cfg.get('is_configured', False),
+        'bot_token_masked': masked_token,
+        'chat_id': cfg.get('chat_id', '')
+    })
+
+
+@api_view(['POST'])
+def test_telegram_notification_view(request):
+    """
+    Gửi tin nhắn thử nghiệm tới Telegram
+    """
+    bot_token = request.data.get('bot_token')
+    chat_id = request.data.get('chat_id')
+    custom_message = request.data.get('message')
+
+    msg = custom_message or (
+        "🔔 <b>THÔNG BÁO THỬ NGHIỆM TỪ LOOPSHOP!</b>\n\n"
+        "Chào Phát! Telegram Bot đã được liên kết thành công với LoopShop 🚀\n"
+        "Kể từ bây giờ, mỗi khi có khách đặt hàng mới hoặc thanh toán qua VietQR, "
+        "bạn sẽ nhận được tin nhắn và chuông 'ting-ting' tức thì trên điện thoại!"
+    )
+    res = send_telegram_notification(msg, custom_token=bot_token, custom_chat_id=chat_id)
+    return Response(res)

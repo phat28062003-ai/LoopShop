@@ -9,7 +9,9 @@ from .views import (
     ConversationViewSet,
     MessageViewSet,
     vietqr_webhook,
-    admin_dashboard_stats
+    admin_dashboard_stats,
+    telegram_config_view,
+    test_telegram_notification_view
 )
 
 router = DefaultRouter()
@@ -24,5 +26,7 @@ router.register(r'messages', MessageViewSet, basename='message')
 urlpatterns = [
     path('payment/webhook/', vietqr_webhook, name='vietqr-webhook'),
     path('admin/stats/', admin_dashboard_stats, name='admin-stats'),
+    path('telegram/config/', telegram_config_view, name='telegram-config'),
+    path('telegram/test/', test_telegram_notification_view, name='telegram-test'),
     path('', include(router.urls)),
 ]

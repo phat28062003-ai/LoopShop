@@ -10,7 +10,9 @@ import {
   ChevronDown, 
   ChevronUp,
   PackageCheck,
-  MessageSquare
+  MessageSquare,
+  Search,
+  X
 } from 'lucide-react';
 import type { VideoItem, Product, CartItem, Order } from './types';
 import { api } from './services/api';
@@ -25,6 +27,16 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { ChatCenterModal } from './components/ChatCenterModal';
 import { SellerStudio } from './components/SellerStudio';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ShareModal } from './components/ShareModal';
+
+const CATEGORIES = [
+  { id: 'all', label: 'Tất cả', icon: '🔥' },
+  { id: 'tech', label: 'Công nghệ', icon: '⚡' },
+  { id: 'fashion', label: 'Thời trang', icon: '👕' },
+  { id: 'lifestyle', label: 'Đời sống', icon: '🏠' },
+  { id: 'food', label: 'Ẩm thực', icon: '🍔' },
+  { id: 'beauty', label: 'Làm đẹp', icon: '💄' },
+];
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<'feed' | 'seller' | 'admin'>('feed');
@@ -61,7 +73,40 @@ export const App: React.FC = () => {
   const [chatTargetUser, setChatTargetUser] = useState<string | null>(null);
   const [chatAttachedProduct, setChatAttachedProduct] = useState<Product | null>(null);
 
+  // Category & Quick Search State
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Share Modal State
+  const [shareVideo, setShareVideo] = useState<VideoItem | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Filtered videos based on active category and search keyword
+  const filteredVideos = videos.filter((video) => {
+    if (selectedCategory !== 'all') {
+      const vCat = video.category || (video.products && video.products[0]?.category);
+      if (vCat !== selectedCategory) return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const inTitle = video.title.toLowerCase().includes(q);
+      const inDesc = video.description.toLowerCase().includes(q);
+      const inUploader = video.uploader_name.toLowerCase().includes(q);
+      const inProduct = video.products?.some(p => 
+        p.title.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q))
+      );
+      if (!inTitle && !inDesc && !inUploader && !inProduct) return false;
+    }
+    return true;
+  });
+
+  const handleVideoShared = (videoId: number, newCount: number) => {
+    setVideos(prev => prev.map(v => v.id === videoId ? { ...v, shares_count: newCount } : v));
+  };
 
   // Check URL query param for secret admin trigger (e.g. ?admin=true)
   useEffect(() => {
@@ -135,12 +180,14 @@ export const App: React.FC = () => {
         isCommentDrawerOpen || 
         isOrderHistoryOpen ||
         isAdminLoginOpen ||
-        isChatCenterOpen
+        isChatCenterOpen ||
+        isShareModalOpen ||
+        isSearchOpen
       ) return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        scrollToIndex(Math.min(videos.length - 1, currentVideoIndex + 1));
+        scrollToIndex(Math.min(filteredVideos.length - 1, currentVideoIndex + 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         scrollToIndex(Math.max(0, currentVideoIndex - 1));
@@ -151,7 +198,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     currentVideoIndex, 
-    videos.length, 
+    filteredVideos.length, 
     currentTab, 
     isProductDrawerOpen, 
     isCartModalOpen, 
@@ -160,7 +207,9 @@ export const App: React.FC = () => {
     isCommentDrawerOpen, 
     isOrderHistoryOpen, 
     isAdminLoginOpen,
-    isChatCenterOpen
+    isChatCenterOpen,
+    isShareModalOpen,
+    isSearchOpen
   ]);
 
   // Handle scroll snap index detection
@@ -172,7 +221,7 @@ export const App: React.FC = () => {
     if (height === 0) return;
 
     const newIndex = Math.round(container.scrollTop / height);
-    if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < videos.length) {
+    if (newIndex !== currentVideoIndex && newIndex >= 0 && newIndex < filteredVideos.length) {
       setCurrentVideoIndex(newIndex);
     }
   };
@@ -354,6 +403,46 @@ export const App: React.FC = () => {
                 </div>
               ) : (
                 <>
+                  {/* Top Expandable Search Overlay */}
+                  {isSearchOpen && (
+                    <div className="absolute top-3 left-3 right-3 z-40 flex items-center bg-neutral-900/95 backdrop-blur-md rounded-2xl border border-white/20 p-1.5 shadow-2xl animate-fade-in">
+                      <Search className="w-4 h-4 text-orange-400 ml-2.5 flex-shrink-0" />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          scrollToIndex(0);
+                        }}
+                        placeholder="Tìm kiếm sản phẩm, video, idol..."
+                        className="flex-1 bg-transparent text-xs text-white px-2.5 py-1.5 outline-none placeholder-neutral-400"
+                        autoFocus
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery('');
+                            scrollToIndex(0);
+                          }}
+                          className="p-1 text-neutral-400 hover:text-white cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery('');
+                          scrollToIndex(0);
+                        }}
+                        className="px-2.5 py-1 text-xs text-neutral-300 hover:text-white font-medium cursor-pointer"
+                      >
+                        Đóng
+                      </button>
+                    </div>
+                  )}
+
                   {/* Top Mobile Brand with Long-Press Secret Gate */}
                   <div 
                     onMouseDown={handleLogoPressStart}
@@ -370,65 +459,126 @@ export const App: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Scrollable vertical snap feed */}
-                  <div
-                    ref={containerRef}
-                    onScroll={handleScroll}
-                    className="w-full h-full overflow-y-scroll snap-y-mandatory no-scrollbar"
-                  >
-                    {videos.map((video, idx) => (
-                      <div
-                        key={video.id}
-                        className="w-full h-full snap-start relative flex-shrink-0"
-                      >
-                        <VideoPlayer
-                          video={video}
-                          isActive={idx === currentVideoIndex}
-                          isMuted={isMuted}
-                          onToggleMute={() => setIsMuted(!isMuted)}
-                          onOpenProduct={(prod) => {
-                            setSelectedProduct(prod);
-                            setIsProductDrawerOpen(true);
+                  {/* Horizontal Category Filter Pills */}
+                  <div className="absolute top-16 left-0 right-0 z-30 px-3 flex items-center space-x-1.5 overflow-x-auto no-scrollbar pointer-events-auto">
+                    {CATEGORIES.map((cat) => {
+                      const isActive = selectedCategory === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setSelectedCategory(cat.id);
+                            scrollToIndex(0);
                           }}
-                          onOpenReport={(vid) => {
-                            setReportVideo(vid);
-                            setIsReportModalOpen(true);
-                          }}
-                          onOpenComments={handleOpenComments}
-                          onStartChatWithCreator={handleStartChatWithCreator}
-                          onLike={handleLike}
-                        />
-                      </div>
-                    ))}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-md backdrop-blur-md flex items-center space-x-1 cursor-pointer ${
+                            isActive
+                              ? 'bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-rose-500/30 scale-105'
+                              : 'bg-black/50 hover:bg-black/70 text-white/80 border border-white/10'
+                          }`}
+                        >
+                          <span>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* Feed or Empty Filter Results */}
+                  {filteredVideos.length === 0 ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center space-y-3 bg-neutral-950 text-neutral-400">
+                      <Search className="w-12 h-12 text-neutral-600 stroke-1" />
+                      <p className="text-sm font-semibold text-neutral-200">Không tìm thấy video nào</p>
+                      <p className="text-xs text-neutral-400 max-w-xs">
+                        {searchQuery 
+                          ? `Không có video phù hợp với từ khóa "${searchQuery}"`
+                          : `Chưa có video nào trong danh mục này.`}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSelectedCategory('all');
+                          setSearchQuery('');
+                          scrollToIndex(0);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-orange-500 text-black text-xs font-bold transition-all shadow hover:bg-orange-400 active:scale-95 cursor-pointer"
+                      >
+                        Xem tất cả video
+                      </button>
+                    </div>
+                  ) : (
+                    /* Scrollable vertical snap feed */
+                    <div
+                      ref={containerRef}
+                      onScroll={handleScroll}
+                      className="w-full h-full overflow-y-scroll snap-y-mandatory no-scrollbar"
+                    >
+                      {filteredVideos.map((video, idx) => (
+                        <div
+                          key={video.id}
+                          className="w-full h-full snap-start relative flex-shrink-0"
+                        >
+                          <VideoPlayer
+                            video={video}
+                            isActive={idx === currentVideoIndex}
+                            isMuted={isMuted}
+                            onToggleMute={() => setIsMuted(!isMuted)}
+                            onOpenProduct={(prod) => {
+                              setSelectedProduct(prod);
+                              setIsProductDrawerOpen(true);
+                            }}
+                            onOpenReport={(vid) => {
+                              setReportVideo(vid);
+                              setIsReportModalOpen(true);
+                            }}
+                            onOpenComments={handleOpenComments}
+                            onOpenShare={(vid) => {
+                              setShareVideo(vid);
+                              setIsShareModalOpen(true);
+                            }}
+                            onStartChatWithCreator={handleStartChatWithCreator}
+                            onLike={handleLike}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Desktop floating scroll buttons */}
                   <div className="hidden md:flex flex-col space-y-2 absolute right-4 top-1/2 -translate-y-1/2 z-30 pointer-events-none">
                     <button
                       onClick={() => scrollToIndex(Math.max(0, currentVideoIndex - 1))}
                       disabled={currentVideoIndex === 0}
-                      className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 pointer-events-auto disabled:opacity-30 transition-all shadow"
+                      className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 pointer-events-auto disabled:opacity-30 transition-all shadow cursor-pointer"
                     >
                       <ChevronUp className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => scrollToIndex(Math.min(videos.length - 1, currentVideoIndex + 1))}
-                      disabled={currentVideoIndex === videos.length - 1}
-                      className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 pointer-events-auto disabled:opacity-30 transition-all shadow"
+                      onClick={() => scrollToIndex(Math.min(filteredVideos.length - 1, currentVideoIndex + 1))}
+                      disabled={currentVideoIndex >= filteredVideos.length - 1}
+                      className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 pointer-events-auto disabled:opacity-30 transition-all shadow cursor-pointer"
                     >
                       <ChevronDown className="w-5 h-5" />
                     </button>
                   </div>
 
-                  {/* Floating Top Right Buttons on Feed: Chat Center + Order Tracking + Cart */}
+                  {/* Floating Top Right Buttons on Feed: Search + Chat Center + Order Tracking + Cart */}
                   <div className="absolute top-4 right-14 z-30 flex items-center space-x-2">
+                    <button
+                      onClick={() => setIsSearchOpen(true)}
+                      className={`p-2.5 rounded-full backdrop-blur-md text-white transition-all shadow-lg active:scale-95 cursor-pointer ${
+                        searchQuery ? 'bg-orange-500 text-black' : 'bg-black/50 hover:bg-black/70'
+                      }`}
+                      title="Tìm kiếm video / sản phẩm"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+
                     <button
                       onClick={() => {
                         setChatTargetUser(null);
                         setChatAttachedProduct(null);
                         setIsChatCenterOpen(true);
                       }}
-                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95 cursor-pointer"
                       title="Phòng trò chuyện & tin nhắn"
                     >
                       <MessageSquare className="w-5 h-5 text-orange-400" />
@@ -437,7 +587,7 @@ export const App: React.FC = () => {
 
                     <button
                       onClick={() => setIsOrderHistoryOpen(true)}
-                      className="p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      className="p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95 cursor-pointer"
                       title="Đơn mua của tôi"
                     >
                       <PackageCheck className="w-5 h-5 text-emerald-400" />
@@ -445,7 +595,7 @@ export const App: React.FC = () => {
 
                     <button
                       onClick={() => setIsCartModalOpen(true)}
-                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95 cursor-pointer"
                       title="Mở giỏ hàng"
                     >
                       <ShoppingBag className="w-5 h-5 text-orange-400" />
@@ -608,6 +758,14 @@ export const App: React.FC = () => {
           setSelectedProduct(p);
           setIsProductDrawerOpen(true);
         }}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        video={shareVideo}
+        onClose={() => setIsShareModalOpen(false)}
+        onShared={handleVideoShared}
       />
 
       {/* Secret Admin Login Modal */}

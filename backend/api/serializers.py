@@ -13,7 +13,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'seller_name', 'title', 'description', 'price',
+            'id', 'seller_name', 'title', 'description', 'category', 'price',
             'original_price', 'image_url', 'stock', 'rating', 'sold_count',
             'is_active', 'created_at'
         ]
@@ -38,7 +38,7 @@ class VideoSerializer(serializers.ModelSerializer):
         model = Video
         fields = [
             'id', 'uploader_name', 'uploader_avatar', 'title', 'description',
-            'video_url', 'thumbnail_url', 'likes_count', 'comments_count',
+            'category', 'video_url', 'thumbnail_url', 'likes_count', 'comments_count',
             'shares_count', 'is_approved', 'is_hidden', 'created_at',
             'tags', 'products'
         ]

@@ -10,6 +10,7 @@ from .views import (
     MessageViewSet,
     vietqr_webhook,
     admin_dashboard_stats,
+    admin_customers_crm,
     telegram_config_view,
     test_telegram_notification_view
 )
@@ -26,6 +27,7 @@ router.register(r'messages', MessageViewSet, basename='message')
 urlpatterns = [
     path('payment/webhook/', vietqr_webhook, name='vietqr-webhook'),
     path('admin/stats/', admin_dashboard_stats, name='admin-stats'),
+    path('admin/customers/', admin_customers_crm, name='admin-customers'),
     path('telegram/config/', telegram_config_view, name='telegram-config'),
     path('telegram/test/', test_telegram_notification_view, name='telegram-test'),
     path('', include(router.urls)),

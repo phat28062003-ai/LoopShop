@@ -1,4 +1,4 @@
-import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message } from '../types';
+import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message, CRMResponse } from '../types';
 
 const getApiBase = () => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -227,6 +227,16 @@ export const api = {
   async getAdminStats(): Promise<AdminStats> {
     const res = await fetch(`${API_BASE}/admin/stats/`);
     if (!res.ok) throw new Error('Không thể tải thống kê admin');
+    return res.json();
+  },
+
+  // Customer CRM endpoints
+  async getAdminCustomers(params?: { search?: string; tier?: string }): Promise<CRMResponse> {
+    let url = `${API_BASE}/admin/customers/?`;
+    if (params?.search) url += `search=${encodeURIComponent(params.search)}&`;
+    if (params?.tier && params.tier !== 'all') url += `tier=${encodeURIComponent(params.tier)}&`;
+    const res = await fetch(url.replace(/[?&]$/, ''));
+    if (!res.ok) throw new Error('Không thể tải danh sách khách hàng');
     return res.json();
   },
 

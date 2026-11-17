@@ -344,6 +344,120 @@ def admin_dashboard_stats(request):
     })
 
 
+@api_view(['GET'])
+def admin_customers_crm(request):
+    """
+    Hệ thống CRM quản lý khách hàng cho Admin (Phát):
+    Gom nhóm theo số điện thoại, tính toán tổng chi tiêu (LTV),
+    phân loại khách VIP / Thân thiết / Tiềm năng, kèm nút 1-chạm gọi điện,
+    nhắn tin Zalo và xem toàn bộ lịch sử các đơn hàng của khách.
+    """
+    search_query = request.query_params.get('search', '').strip().lower()
+    tier_filter = request.query_params.get('tier', '').strip().lower()
+
+    orders = Order.objects.all().order_by('-created_at').prefetch_related('items')
+    customers_dict = {}
+
+    for ord in orders:
+        phone = (ord.customer_phone or '').strip()
+        if not phone:
+            continue
+
+        if phone not in customers_dict:
+            customers_dict[phone] = {
+                'phone': phone,
+                'name': ord.customer_name,
+                'shipping_address': ord.shipping_address,
+                'total_orders': 0,
+                'total_spent': 0,
+                'first_order_date': ord.created_at,
+                'last_order_date': ord.created_at,
+                'orders': [],
+                'has_paid_order': False,
+            }
+
+        cust = customers_dict[phone]
+        cust['total_orders'] += 1
+        amount = float(ord.total_amount or 0)
+        cust['total_spent'] += amount
+
+        if ord.is_paid or ord.status in ['confirmed', 'shipping', 'completed']:
+            cust['has_paid_order'] = True
+
+        if ord.created_at < cust['first_order_date']:
+            cust['first_order_date'] = ord.created_at
+        if ord.created_at > cust['last_order_date']:
+            cust['last_order_date'] = ord.created_at
+            cust['name'] = ord.customer_name
+            cust['shipping_address'] = ord.shipping_address
+
+        items_summary = [
+            {'title': item.product_title, 'quantity': item.quantity, 'price': float(item.price)}
+            for item in ord.items.all()
+        ]
+
+        cust['orders'].append({
+            'id': ord.id,
+            'order_code': ord.order_code,
+            'status': ord.status,
+            'status_display': ord.get_status_display(),
+            'total_amount': amount,
+            'is_paid': ord.is_paid,
+            'created_at': ord.created_at,
+            'vietqr_url': ord.vietqr_url,
+            'items': items_summary
+        })
+
+    customers_list = []
+    for phone, cust in customers_dict.items():
+        if cust['total_orders'] >= 2 or cust['total_spent'] >= 500000:
+            tier = 'vip'
+            tier_display = 'Khách VIP 👑'
+        elif cust['has_paid_order']:
+            tier = 'regular'
+            tier_display = 'Khách thân thiết 🛍️'
+        else:
+            tier = 'lead'
+            tier_display = 'Chờ thanh toán ⏳'
+
+        cust['tier'] = tier
+        cust['tier_display'] = tier_display
+        cust['formatted_spent'] = f"{cust['total_spent']:,.0f} VND"
+
+        if search_query:
+            match_name = search_query in cust['name'].lower()
+            match_phone = search_query in cust['phone'].lower()
+            match_addr = search_query in cust['shipping_address'].lower()
+            if not (match_name or match_phone or match_addr):
+                continue
+
+        if tier_filter and tier_filter != 'all':
+            if cust['tier'] != tier_filter:
+                continue
+
+        customers_list.append(cust)
+
+    # Sắp xếp khách theo tổng tiền chi tiêu giảm dần
+    customers_list.sort(key=lambda x: (x['total_spent'], x['total_orders']), reverse=True)
+
+    total_customers = len(customers_dict)
+    vip_count = sum(1 for c in customers_dict.values() if c['tier'] == 'vip')
+    total_all_spent = sum(c['total_spent'] for c in customers_dict.values())
+    avg_spent = (total_all_spent / total_customers) if total_customers > 0 else 0
+
+    return Response({
+        'summary': {
+            'total_customers': total_customers,
+            'vip_customers': vip_count,
+            'total_spent': total_all_spent,
+            'formatted_total_spent': f"{total_all_spent:,.0f} VND",
+            'avg_spent': avg_spent,
+            'formatted_avg_spent': f"{avg_spent:,.0f} VND",
+        },
+        'customers': customers_list
+    })
+
+
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """

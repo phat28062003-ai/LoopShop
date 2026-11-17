@@ -140,5 +140,49 @@ export interface Conversation {
   last_message: string;
   updated_at: string;
   created_at: string;
-  messages_count: number;
+  messages_count?: number;
+}
+
+export interface CustomerOrderItem {
+  id: number;
+  order_code: string;
+  status: string;
+  status_display: string;
+  total_amount: number;
+  is_paid: boolean;
+  created_at: string;
+  vietqr_url?: string;
+  items: {
+    title: string;
+    quantity: number;
+    price: number;
+  }[];
+}
+
+export interface CustomerCRMItem {
+  phone: string;
+  name: string;
+  shipping_address: string;
+  total_orders: number;
+  total_spent: number;
+  formatted_spent: string;
+  first_order_date: string;
+  last_order_date: string;
+  tier: 'vip' | 'regular' | 'lead';
+  tier_display: string;
+  orders: CustomerOrderItem[];
+}
+
+export interface CRMSummary {
+  total_customers: number;
+  vip_customers: number;
+  total_spent: number;
+  formatted_total_spent: string;
+  avg_spent: number;
+  formatted_avg_spent: string;
+}
+
+export interface CRMResponse {
+  summary: CRMSummary;
+  customers: CustomerCRMItem[];
 }

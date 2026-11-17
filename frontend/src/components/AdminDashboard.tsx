@@ -14,9 +14,19 @@ import {
   Key,
   MessageSquare,
   Sparkles,
-  Check
+  Check,
+  Users,
+  Crown,
+  PhoneCall,
+  MapPin,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Search,
+  ExternalLink
 } from 'lucide-react';
-import type { AdminStats, VideoItem, Report, Order } from '../types';
+import type { AdminStats, VideoItem, Report, Order, CRMResponse } from '../types';
 import { api } from '../services/api';
 
 interface AdminDashboardProps {
@@ -28,8 +38,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'moderation' | 'videos' | 'orders' | 'telegram'>('overview');
+  const [crmData, setCrmData] = useState<CRMResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'moderation' | 'videos' | 'orders' | 'telegram'>('overview');
   const [isLoading, setIsLoading] = useState(false);
+
+  // CRM state
+  const [customerSearch, setCustomerSearch] = useState<string>('');
+  const [customerTierFilter, setCustomerTierFilter] = useState<'all' | 'vip' | 'regular' | 'lead'>('all');
+  const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
 
   // Telegram state
   const [telegramToken, setTelegramToken] = useState<string>(() => localStorage.getItem('loopshop_telegram_token') || '');
@@ -42,16 +59,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
-      const [statsData, videosData, reportsData, ordersData] = await Promise.all([
+      const [statsData, videosData, reportsData, ordersData, crmResult] = await Promise.all([
         api.getAdminStats(),
         api.getVideos(true), // get all videos including hidden
         api.getReports(),
         api.getOrders(),
+        api.getAdminCustomers().catch(() => null),
       ]);
       setStats(statsData);
       setVideos(videosData);
       setReports(reportsData);
       setOrders(ordersData);
+      if (crmResult) {
+        setCrmData(crmResult);
+      }
 
       // Load telegram config
       try {
@@ -149,6 +170,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert('Thao tác thất bại!');
     }
   };
+
+  const handleCopyPhone = (phone: string) => {
+    navigator.clipboard.writeText(phone);
+    setCopiedPhone(phone);
+    setTimeout(() => setCopiedPhone(null), 2000);
+  };
+
+  const toggleExpandPhone = (phone: string) => {
+    setExpandedPhone(prev => (prev === phone ? null : phone));
+  };
+
+  const filteredCustomers = (crmData?.customers || []).filter((c) => {
+    if (customerTierFilter !== 'all' && c.tier !== customerTierFilter) {
+      return false;
+    }
+    if (customerSearch.trim()) {
+      const q = customerSearch.trim().toLowerCase();
+      const matchName = c.name.toLowerCase().includes(q);
+      const matchPhone = c.phone.includes(q);
+      const matchAddr = (c.shipping_address || '').toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchAddr) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const pendingReports = reports.filter(r => r.status === 'pending');
 
@@ -311,6 +358,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </button>
 
         <button
+          onClick={() => setActiveTab('customers')}
+          className={`py-2 px-4 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+            activeTab === 'customers'
+              ? 'bg-rose-500 text-white font-bold shadow'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Khách hàng (CRM)</span>
+          {crmData?.summary.total_customers ? (
+            <span className="bg-sky-500/20 text-sky-300 text-[10px] font-bold px-1.5 rounded-full ml-1 border border-sky-500/30">
+              {crmData.summary.total_customers}
+            </span>
+          ) : null}
+        </button>
+
+        <button
           onClick={() => setActiveTab('moderation')}
           className={`py-2 px-4 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap ${
             activeTab === 'moderation'
@@ -369,8 +433,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <div className="max-w-5xl mx-auto mt-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* 4 Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            {/* 5 Stat Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between text-neutral-400">
                   <span className="text-xs font-medium">Doanh thu đã thu</span>
@@ -395,6 +459,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </span>
               </div>
 
+              <div 
+                onClick={() => setActiveTab('customers')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1 hover:border-amber-500/50 cursor-pointer transition-colors"
+                title="Bấm để xem danh sách khách hàng"
+              >
+                <div className="flex items-center justify-between text-neutral-400">
+                  <span className="text-xs font-medium">Khách hàng CRM</span>
+                  <Crown className="w-4 h-4 text-amber-400" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-amber-400">
+                  {crmData?.summary.total_customers || 0}
+                </p>
+                <span className="text-[10px] text-amber-300/80">
+                  👑 {crmData?.summary.vip_customers || 0} VIP (bấm xem)
+                </span>
+              </div>
+
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between text-neutral-400">
                   <span className="text-xs font-medium">Báo cáo vi phạm</span>
@@ -408,7 +489,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between text-neutral-400">
-                  <span className="text-xs font-medium">Video trên hệ thống</span>
+                  <span className="text-xs font-medium">Video hệ thống</span>
                   <Eye className="w-4 h-4 text-indigo-400" />
                 </div>
                 <p className="text-lg md:text-xl font-black text-white">
@@ -433,6 +514,309 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
             {/* Telegram Notification Bot Card */}
             {renderTelegramSection()}
+          </div>
+        )}
+
+        {activeTab === 'customers' && (
+          <div className="space-y-5">
+            {/* 4 CRM Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between text-neutral-400">
+                  <span className="text-xs font-medium">Tổng tệp khách hàng</span>
+                  <Users className="w-4 h-4 text-sky-400" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-white">
+                  {crmData?.summary.total_customers || 0}
+                </p>
+                <span className="text-[10px] text-neutral-500">Người mua đã lưu SĐT</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between text-neutral-400">
+                  <span className="text-xs font-medium">Khách VIP</span>
+                  <Crown className="w-4 h-4 text-amber-400" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-amber-400">
+                  {crmData?.summary.vip_customers || 0}
+                </p>
+                <span className="text-[10px] text-amber-500/80">Mua ≥ 2 đơn hoặc ≥ 500k</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between text-neutral-400">
+                  <span className="text-xs font-medium">Tổng tiền khách đã chi</span>
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-emerald-400">
+                  {crmData?.summary.formatted_total_spent || '0 VND'}
+                </p>
+                <span className="text-[10px] text-neutral-500">Giá trị trọn đời (LTV)</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between text-neutral-400">
+                  <span className="text-xs font-medium">Chi tiêu TB / Khách</span>
+                  <TrendingUp className="w-4 h-4 text-rose-400" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-rose-400">
+                  {crmData?.summary.formatted_avg_spent || '0 VND'}
+                </p>
+                <span className="text-[10px] text-neutral-500">Giá trị đơn TB (AOV)</span>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="bg-neutral-900 p-3.5 rounded-2xl border border-neutral-800 flex flex-col md:flex-row gap-3 items-center justify-between">
+              <div className="relative w-full md:w-80">
+                <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên, SĐT (ví dụ: 0912...), địa chỉ..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+                {customerSearch && (
+                  <button
+                    onClick={() => setCustomerSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 text-xs px-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-1.5 w-full md:w-auto overflow-x-auto no-scrollbar">
+                <button
+                  onClick={() => setCustomerTierFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    customerTierFilter === 'all'
+                      ? 'bg-neutral-100 text-neutral-900 font-bold'
+                      : 'bg-neutral-950 text-neutral-400 hover:text-white border border-neutral-800'
+                  }`}
+                >
+                  Tất cả ({crmData?.customers.length || 0})
+                </button>
+                <button
+                  onClick={() => setCustomerTierFilter('vip')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors flex items-center space-x-1 cursor-pointer ${
+                    customerTierFilter === 'vip'
+                      ? 'bg-amber-500 text-black font-bold'
+                      : 'bg-neutral-950 text-amber-400 hover:bg-neutral-800 border border-neutral-800'
+                  }`}
+                >
+                  <Crown className="w-3 h-3" />
+                  <span>👑 VIP ({crmData?.summary.vip_customers || 0})</span>
+                </button>
+                <button
+                  onClick={() => setCustomerTierFilter('regular')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors flex items-center space-x-1 cursor-pointer ${
+                    customerTierFilter === 'regular'
+                      ? 'bg-emerald-500 text-black font-bold'
+                      : 'bg-neutral-950 text-emerald-400 hover:bg-neutral-800 border border-neutral-800'
+                  }`}
+                >
+                  <span>🛍️ Thân thiết</span>
+                </button>
+                <button
+                  onClick={() => setCustomerTierFilter('lead')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors flex items-center space-x-1 cursor-pointer ${
+                    customerTierFilter === 'lead'
+                      ? 'bg-rose-500 text-white font-bold'
+                      : 'bg-neutral-950 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
+                  }`}
+                >
+                  <span>⏳ Chờ thanh toán</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Customer List */}
+            {filteredCustomers.length === 0 ? (
+              <div className="text-center py-12 bg-neutral-900/50 rounded-2xl border border-neutral-800">
+                <Users className="w-10 h-10 text-neutral-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-neutral-400">Không tìm thấy khách hàng nào</p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Thử đổi từ khóa tìm kiếm hoặc lọc theo phân hạng khác
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredCustomers.map((cust) => {
+                  const isExpanded = expandedPhone === cust.phone;
+                  const isCopied = copiedPhone === cust.phone;
+                  const initials = cust.name.trim().slice(0, 2).toUpperCase() || 'KH';
+
+                  return (
+                    <div
+                      key={cust.phone}
+                      className="bg-neutral-900 rounded-2xl p-4 border border-neutral-800 hover:border-neutral-700/80 transition-all space-y-3"
+                    >
+                      {/* Top Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm text-white shadow-md ${
+                            cust.tier === 'vip'
+                              ? 'bg-gradient-to-tr from-amber-500 to-orange-500'
+                              : cust.tier === 'regular'
+                              ? 'bg-gradient-to-tr from-emerald-600 to-teal-500'
+                              : 'bg-neutral-800 text-neutral-300'
+                          }`}>
+                            {initials}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-bold text-sm text-white">{cust.name}</h3>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                cust.tier === 'vip'
+                                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                  : cust.tier === 'regular'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                              }`}>
+                                {cust.tier_display}
+                              </span>
+                            </div>
+                            <p className="text-xs font-mono text-neutral-400 mt-0.5">
+                              {cust.phone}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Financial summary */}
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-800/80">
+                          <span className="text-base font-extrabold text-emerald-400">
+                            {cust.formatted_spent}
+                          </span>
+                          <span className="text-[11px] text-neutral-400 font-medium">
+                            {cust.total_orders} đơn hàng
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Info snippet */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-neutral-400 bg-neutral-950/60 p-2.5 rounded-xl border border-neutral-800/60">
+                        <div className="flex items-center space-x-1.5 truncate">
+                          <MapPin className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                          <span className="truncate">{cust.shipping_address || 'Chưa cập nhật địa chỉ'}</span>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-sky-400 flex-shrink-0" />
+                          <span>Đơn gần nhất: {cust.last_order_date ? new Date(cust.last_order_date).toLocaleDateString('vi-VN') : 'Mới'}</span>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Action Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-neutral-800/60">
+                        <div className="flex items-center space-x-2">
+                          <a
+                            href={`tel:${cust.phone}`}
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition-all active:scale-95"
+                          >
+                            <PhoneCall className="w-3.5 h-3.5" />
+                            <span>Gọi điện</span>
+                          </a>
+
+                          <a
+                            href={`https://zalo.me/${cust.phone.replace(/^0/, '84')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow transition-all active:scale-95"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Nhắn Zalo</span>
+                          </a>
+
+                          <button
+                            onClick={() => handleCopyPhone(cust.phone)}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium border border-neutral-700 transition-colors cursor-pointer"
+                          >
+                            {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            <span>{isCopied ? 'Đã copy' : 'Copy SĐT'}</span>
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => toggleExpandPhone(cust.phone)}
+                          className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300 text-xs font-medium border border-neutral-700/80 transition-colors ml-auto cursor-pointer"
+                        >
+                          <span>{isExpanded ? 'Thu gọn' : `Xem ${cust.orders.length} đơn hàng`}</span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* Expandable Order History */}
+                      {isExpanded && (
+                        <div className="pt-2 border-t border-neutral-800 space-y-2">
+                          <p className="text-xs font-bold text-neutral-300 flex items-center space-x-1">
+                            <Package className="w-3.5 h-3.5 text-orange-400" />
+                            <span>Chi tiết lịch sử đặt hàng của khách:</span>
+                          </p>
+
+                          <div className="space-y-2">
+                            {cust.orders.map((ord) => (
+                              <div
+                                key={ord.id}
+                                className="bg-neutral-950 p-3 rounded-xl border border-neutral-800/80 text-xs space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-mono font-bold text-orange-400">{ord.order_code}</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      ord.is_paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
+                                    }`}>
+                                      {ord.status_display}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-neutral-500">
+                                    {new Date(ord.created_at).toLocaleString('vi-VN')}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1 pl-2 border-l-2 border-neutral-800">
+                                  {ord.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between text-neutral-300 text-[11px]">
+                                      <span>
+                                        {item.quantity}x {item.title}
+                                      </span>
+                                      <span className="font-mono text-neutral-400">
+                                        {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 border-t border-neutral-900">
+                                  <span className="text-[11px] text-neutral-400">Tổng tiền đơn:</span>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-extrabold text-white">
+                                      {Number(ord.total_amount).toLocaleString('vi-VN')}₫
+                                    </span>
+                                    {ord.vietqr_url && (
+                                      <a
+                                        href={ord.vietqr_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-sky-400 flex items-center space-x-1"
+                                      >
+                                        <span>QR</span>
+                                        <ExternalLink className="w-2.5 h-2.5" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

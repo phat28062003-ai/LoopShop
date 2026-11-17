@@ -1,10 +1,20 @@
 import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message } from '../types';
 
-const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : 'https://loopshop.onrender.com')
-).replace(/\/$/, '');
-const API_BASE = `${BASE_URL}/api`;
+const getApiBase = () => {
+  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  // Chỉ sử dụng envUrl nếu là URL hợp lệ bắt đầu bằng http:// hoặc https://
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    return `${envUrl.replace(/\/$/, '')}/api`;
+  }
+  // Nếu đang chạy trên máy local dev
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return '/api';
+  }
+  // Mặc định kết nối thẳng tới Render production backend
+  return 'https://loopshop.onrender.com/api';
+};
+
+const API_BASE = getApiBase();
 
 export const api = {
   // Video endpoints

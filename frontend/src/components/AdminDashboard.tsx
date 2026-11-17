@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, TrendingUp, DollarSign, Package, Eye, EyeOff, CheckCircle2, RefreshCw } from 'lucide-react';
+import { ShieldAlert, TrendingUp, DollarSign, Package, Eye, EyeOff, CheckCircle2, RefreshCw, LogOut } from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order } from '../types';
 import { api } from '../services/api';
 
-export const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+  onLogout?: () => void;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -84,14 +88,27 @@ export const AdminDashboard: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={loadAdminData}
-          disabled={isLoading}
-          className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors flex items-center space-x-1.5 text-xs self-start md:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Làm mới dữ liệu</span>
-        </button>
+        <div className="flex items-center space-x-2 self-start md:self-auto">
+          <button
+            onClick={loadAdminData}
+            disabled={isLoading}
+            className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-colors flex items-center space-x-1.5 text-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Làm mới dữ liệu</span>
+          </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 transition-colors flex items-center space-x-1.5 text-xs"
+              title="Khóa quyền Admin và quay về chế độ người xem"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Khóa Admin</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}

@@ -20,6 +20,7 @@ import { VietQRCheckoutModal } from './components/VietQRCheckoutModal';
 import { ReportModal } from './components/ReportModal';
 import { CommentDrawer } from './components/CommentDrawer';
 import { OrderHistoryModal } from './components/OrderHistoryModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { SellerStudio } from './components/SellerStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -32,6 +33,13 @@ export const App: React.FC = () => {
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true); // preview frame on desktop
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Security & Admin Authentication State
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(
+    () => localStorage.getItem('loopshop_admin_auth') === 'true'
+  );
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState<boolean>(false);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Modals state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState<boolean>(false);
@@ -40,13 +48,56 @@ export const App: React.FC = () => {
   const [reportVideo, setReportVideo] = useState<VideoItem | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   
-  // New: Comment & Order History Modals
+  // Comment & Order History Modals
   const [activeCommentVideoId, setActiveCommentVideoId] = useState<number | null>(null);
   const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState<boolean>(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState<boolean>(false);
   const [reopenVietQROrder, setReopenVietQROrder] = useState<Order | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check URL query param for secret admin trigger (e.g. ?admin=true)
+  useEffect(() => {
+    if (window.location.search.includes('admin=true')) {
+      setIsAdminLoginOpen(true);
+    }
+  }, []);
+
+  // Ensure unauthorized users cannot stay on seller or admin tabs
+  useEffect(() => {
+    if (!isAdminLoggedIn && (currentTab === 'seller' || currentTab === 'admin')) {
+      setCurrentTab('feed');
+    }
+  }, [isAdminLoggedIn, currentTab]);
+
+  // Long press handlers on Logo (1.5 seconds)
+  const handleLogoPressStart = () => {
+    pressTimerRef.current = setTimeout(() => {
+      setIsAdminLoginOpen(true);
+      if (navigator.vibrate) {
+        navigator.vibrate(50); // haptic feedback on mobile if supported
+      }
+    }, 1500);
+  };
+
+  const handleLogoPressEnd = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    localStorage.setItem('loopshop_admin_auth', 'true');
+    setCurrentTab('admin');
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('loopshop_admin_auth');
+    setIsAdminLoggedIn(false);
+    setCurrentTab('feed');
+  };
 
   // Load videos
   const fetchFeedVideos = async () => {
@@ -69,7 +120,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (currentTab !== 'feed') return;
-      if (isProductDrawerOpen || isCartModalOpen || isCheckoutModalOpen || isReportModalOpen || isCommentDrawerOpen || isOrderHistoryOpen) return;
+      if (
+        isProductDrawerOpen || 
+        isCartModalOpen || 
+        isCheckoutModalOpen || 
+        isReportModalOpen || 
+        isCommentDrawerOpen || 
+        isOrderHistoryOpen ||
+        isAdminLoginOpen
+      ) return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -82,7 +141,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentVideoIndex, videos.length, currentTab, isProductDrawerOpen, isCartModalOpen, isCheckoutModalOpen, isReportModalOpen, isCommentDrawerOpen, isOrderHistoryOpen]);
+  }, [currentVideoIndex, videos.length, currentTab, isProductDrawerOpen, isCartModalOpen, isCheckoutModalOpen, isReportModalOpen, isCommentDrawerOpen, isOrderHistoryOpen, isAdminLoginOpen]);
 
   // Handle scroll snap index detection
   const handleScroll = () => {
@@ -164,12 +223,26 @@ export const App: React.FC = () => {
     <div className="w-screen h-screen bg-neutral-950 flex flex-col md:flex-row items-center justify-center overflow-hidden">
       {/* Desktop Top Control Bar (Only visible on wide screens) */}
       <div className="hidden md:flex fixed top-3 left-4 right-4 z-40 items-center justify-between pointer-events-none">
-        <div className="flex items-center space-x-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-neutral-800 shadow-xl pointer-events-auto">
+        {/* Brand Logo with Long-Press Secret Gate */}
+        <div 
+          onMouseDown={handleLogoPressStart}
+          onMouseUp={handleLogoPressEnd}
+          onTouchStart={handleLogoPressStart}
+          onTouchEnd={handleLogoPressEnd}
+          className="flex items-center space-x-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-neutral-800 shadow-xl pointer-events-auto cursor-pointer select-none active:scale-95 transition-transform"
+          title="Nhấn giữ 2 giây để mở đăng nhập Quản trị viên"
+        >
           <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></div>
-          <span className="font-bold text-xs tracking-tight text-white">LoopShop (TikTok + Shopee)</span>
-          <span className="text-[10px] bg-orange-500/20 text-orange-400 font-semibold px-2 py-0.5 rounded-full">
-            VietQR + PWA
-          </span>
+          <span className="font-bold text-xs tracking-tight text-white">LoopShop</span>
+          {isAdminLoggedIn ? (
+            <span className="text-[10px] bg-rose-500/20 text-rose-400 font-bold px-2 py-0.5 rounded-full border border-rose-500/30">
+              Admin Mode (Phát)
+            </span>
+          ) : (
+            <span className="text-[10px] bg-orange-500/20 text-orange-400 font-semibold px-2 py-0.5 rounded-full">
+              Video & Mua Sắm
+            </span>
+          )}
         </div>
 
         <div className="flex items-center space-x-2 pointer-events-auto">
@@ -179,7 +252,7 @@ export const App: React.FC = () => {
             className="flex items-center space-x-1.5 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-neutral-300 hover:text-white shadow-xl transition-all"
             title="Tra cứu đơn hàng"
           >
-            <PackageCheck className="w-4 h-4 text-orange-400" />
+            <PackageCheck className="w-4 h-4 text-emerald-400" />
             <span>Đơn mua của tôi</span>
           </button>
 
@@ -223,15 +296,33 @@ export const App: React.FC = () => {
               ) : videos.length === 0 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center text-neutral-400 p-6 text-center space-y-3 bg-neutral-950">
                   <p className="text-sm font-semibold">Chưa có video nào trên Feed</p>
-                  <button
-                    onClick={() => setCurrentTab('seller')}
-                    className="px-4 py-2 rounded-xl bg-orange-500 text-black text-xs font-bold"
-                  >
-                    Đăng video ngay
-                  </button>
+                  {isAdminLoggedIn && (
+                    <button
+                      onClick={() => setCurrentTab('seller')}
+                      className="px-4 py-2 rounded-xl bg-orange-500 text-black text-xs font-bold"
+                    >
+                      Đăng video ngay
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
+                  {/* Top Mobile Brand with Long-Press Secret Gate */}
+                  <div 
+                    onMouseDown={handleLogoPressStart}
+                    onMouseUp={handleLogoPressEnd}
+                    onTouchStart={handleLogoPressStart}
+                    onTouchEnd={handleLogoPressEnd}
+                    className="absolute top-4 left-4 z-30 select-none cursor-pointer flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 active:scale-95 transition-all"
+                    title="Nhấn giữ 2 giây để mở Admin"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span className="text-xs font-extrabold tracking-tight text-white">LoopShop</span>
+                    {isAdminLoggedIn && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    )}
+                  </div>
+
                   {/* Scrollable vertical snap feed */}
                   <div
                     ref={containerRef}
@@ -281,7 +372,7 @@ export const App: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Floating Top Buttons on Feed: Order History + Cart */}
+                  {/* Floating Top Right Buttons on Feed: Order Tracking + Cart */}
                   <div className="absolute top-4 right-14 z-30 flex items-center space-x-2">
                     <button
                       onClick={() => setIsOrderHistoryOpen(true)}
@@ -309,15 +400,18 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 2: SELLER STUDIO */}
-          {currentTab === 'seller' && <SellerStudio />}
+          {/* TAB 2: SELLER STUDIO (Admin/Seller Only) */}
+          {currentTab === 'seller' && isAdminLoggedIn && <SellerStudio />}
 
-          {/* TAB 3: ADMIN DASHBOARD (Phát) */}
-          {currentTab === 'admin' && <AdminDashboard />}
+          {/* TAB 3: ADMIN DASHBOARD (Admin Phát Only) */}
+          {currentTab === 'admin' && isAdminLoggedIn && (
+            <AdminDashboard onLogout={handleAdminLogout} />
+          )}
         </div>
 
         {/* Global Bottom Navigation Bar */}
         <div className="w-full bg-neutral-900/95 backdrop-blur-md border-t border-neutral-800 px-3 py-2 flex items-center justify-around z-30">
+          {/* Public Tab 1: Video Feed */}
           <button
             onClick={() => setCurrentTab('feed')}
             className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
@@ -330,6 +424,7 @@ export const App: React.FC = () => {
             <span className="text-[10px] mt-0.5">Feed Video</span>
           </button>
 
+          {/* Public Tab 2: Order Tracking */}
           <button
             onClick={() => setIsOrderHistoryOpen(true)}
             className="flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
@@ -338,6 +433,7 @@ export const App: React.FC = () => {
             <span className="text-[10px] mt-0.5">Đơn mua</span>
           </button>
 
+          {/* Public Tab 3: Cart */}
           <button
             onClick={() => setIsCartModalOpen(true)}
             className="relative flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
@@ -351,29 +447,34 @@ export const App: React.FC = () => {
             )}
           </button>
 
-          <button
-            onClick={() => setCurrentTab('seller')}
-            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
-              currentTab === 'seller'
-                ? 'text-orange-400 font-bold scale-105'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <Upload className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">Người Bán</span>
-          </button>
+          {/* PRIVILEGED TABS: ONLY VISIBLE WHEN ADMIN LOGGED IN */}
+          {isAdminLoggedIn && (
+            <>
+              <button
+                onClick={() => setCurrentTab('seller')}
+                className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
+                  currentTab === 'seller'
+                    ? 'text-orange-400 font-bold scale-105'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Upload className="w-5 h-5" />
+                <span className="text-[10px] mt-0.5">Người Bán</span>
+              </button>
 
-          <button
-            onClick={() => setCurrentTab('admin')}
-            className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
-              currentTab === 'admin'
-                ? 'text-rose-400 font-bold scale-105'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            <ShieldCheck className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">Admin Phát</span>
-          </button>
+              <button
+                onClick={() => setCurrentTab('admin')}
+                className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
+                  currentTab === 'admin'
+                    ? 'text-rose-400 font-bold scale-105'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-5 h-5 text-rose-400" />
+                <span className="text-[10px] mt-0.5 text-rose-400 font-semibold">Admin Phát</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -419,6 +520,13 @@ export const App: React.FC = () => {
         isOpen={isOrderHistoryOpen}
         onClose={() => setIsOrderHistoryOpen(false)}
         onOpenVietQR={(ord) => setReopenVietQROrder(ord)}
+      />
+
+      {/* Secret Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
       />
 
       {/* Reopen VietQR QR Code modal from order history */}

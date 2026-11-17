@@ -8,15 +8,18 @@ import {
   Monitor, 
   RefreshCw, 
   ChevronDown, 
-  ChevronUp 
+  ChevronUp,
+  PackageCheck
 } from 'lucide-react';
-import type { VideoItem, Product, CartItem } from './types';
+import type { VideoItem, Product, CartItem, Order } from './types';
 import { api } from './services/api';
 import { VideoPlayer } from './components/VideoPlayer';
 import { ProductDrawer } from './components/ProductDrawer';
 import { CartModal } from './components/CartModal';
 import { VietQRCheckoutModal } from './components/VietQRCheckoutModal';
 import { ReportModal } from './components/ReportModal';
+import { CommentDrawer } from './components/CommentDrawer';
+import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { SellerStudio } from './components/SellerStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -36,6 +39,12 @@ export const App: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
   const [reportVideo, setReportVideo] = useState<VideoItem | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  
+  // New: Comment & Order History Modals
+  const [activeCommentVideoId, setActiveCommentVideoId] = useState<number | null>(null);
+  const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState<boolean>(false);
+  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState<boolean>(false);
+  const [reopenVietQROrder, setReopenVietQROrder] = useState<Order | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +69,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (currentTab !== 'feed') return;
-      if (isProductDrawerOpen || isCartModalOpen || isCheckoutModalOpen || isReportModalOpen) return;
+      if (isProductDrawerOpen || isCartModalOpen || isCheckoutModalOpen || isReportModalOpen || isCommentDrawerOpen || isOrderHistoryOpen) return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -73,7 +82,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentVideoIndex, videos.length, currentTab, isProductDrawerOpen, isCartModalOpen, isCheckoutModalOpen, isReportModalOpen]);
+  }, [currentVideoIndex, videos.length, currentTab, isProductDrawerOpen, isCartModalOpen, isCheckoutModalOpen, isReportModalOpen, isCommentDrawerOpen, isOrderHistoryOpen]);
 
   // Handle scroll snap index detection
   const handleScroll = () => {
@@ -144,6 +153,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOpenComments = (videoId: number) => {
+    setActiveCommentVideoId(videoId);
+    setIsCommentDrawerOpen(true);
+  };
+
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -152,13 +166,23 @@ export const App: React.FC = () => {
       <div className="hidden md:flex fixed top-3 left-4 right-4 z-40 items-center justify-between pointer-events-none">
         <div className="flex items-center space-x-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-neutral-800 shadow-xl pointer-events-auto">
           <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></div>
-          <span className="font-bold text-xs tracking-tight text-white">Video Commerce (TikTok + Shopee)</span>
+          <span className="font-bold text-xs tracking-tight text-white">LoopShop (TikTok + Shopee)</span>
           <span className="text-[10px] bg-orange-500/20 text-orange-400 font-semibold px-2 py-0.5 rounded-full">
             VietQR + PWA
           </span>
         </div>
 
         <div className="flex items-center space-x-2 pointer-events-auto">
+          {/* Order Tracking button on desktop */}
+          <button
+            onClick={() => setIsOrderHistoryOpen(true)}
+            className="flex items-center space-x-1.5 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-neutral-300 hover:text-white shadow-xl transition-all"
+            title="Tra cứu đơn hàng"
+          >
+            <PackageCheck className="w-4 h-4 text-orange-400" />
+            <span>Đơn mua của tôi</span>
+          </button>
+
           {/* Toggle Mobile Frame view on PC */}
           <button
             onClick={() => setIsMobileFrame(!isMobileFrame)}
@@ -232,6 +256,7 @@ export const App: React.FC = () => {
                             setReportVideo(vid);
                             setIsReportModalOpen(true);
                           }}
+                          onOpenComments={handleOpenComments}
                           onLike={handleLike}
                         />
                       </div>
@@ -256,19 +281,29 @@ export const App: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Floating Shopping Cart Button on top right */}
-                  <button
-                    onClick={() => setIsCartModalOpen(true)}
-                    className="absolute top-4 right-16 z-30 p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
-                    title="Mở giỏ hàng"
-                  >
-                    <ShoppingBag className="w-5 h-5 text-orange-400" />
-                    {totalCartCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow">
-                        {totalCartCount}
-                      </span>
-                    )}
-                  </button>
+                  {/* Floating Top Buttons on Feed: Order History + Cart */}
+                  <div className="absolute top-4 right-14 z-30 flex items-center space-x-2">
+                    <button
+                      onClick={() => setIsOrderHistoryOpen(true)}
+                      className="p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      title="Đơn mua của tôi"
+                    >
+                      <PackageCheck className="w-5 h-5 text-emerald-400" />
+                    </button>
+
+                    <button
+                      onClick={() => setIsCartModalOpen(true)}
+                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      title="Mở giỏ hàng"
+                    >
+                      <ShoppingBag className="w-5 h-5 text-orange-400" />
+                      {totalCartCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow">
+                          {totalCartCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -293,6 +328,14 @@ export const App: React.FC = () => {
           >
             <Play className={`w-5 h-5 ${currentTab === 'feed' ? 'fill-orange-400' : ''}`} />
             <span className="text-[10px] mt-0.5">Feed Video</span>
+          </button>
+
+          <button
+            onClick={() => setIsOrderHistoryOpen(true)}
+            className="flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
+          >
+            <PackageCheck className="w-5 h-5 text-emerald-400" />
+            <span className="text-[10px] mt-0.5">Đơn mua</span>
           </button>
 
           <button
@@ -364,6 +407,51 @@ export const App: React.FC = () => {
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
       />
+
+      <CommentDrawer
+        videoId={activeCommentVideoId}
+        isOpen={isCommentDrawerOpen}
+        onClose={() => setIsCommentDrawerOpen(false)}
+        onCommentAdded={fetchFeedVideos}
+      />
+
+      <OrderHistoryModal
+        isOpen={isOrderHistoryOpen}
+        onClose={() => setIsOrderHistoryOpen(false)}
+        onOpenVietQR={(ord) => setReopenVietQROrder(ord)}
+      />
+
+      {/* Reopen VietQR QR Code modal from order history */}
+      {reopenVietQROrder && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setReopenVietQROrder(null)}
+        >
+          <div 
+            className="w-full max-w-sm bg-neutral-900 rounded-2xl p-5 border border-neutral-800 text-center space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-sm text-white">
+              Mã VietQR - {reopenVietQROrder.order_code}
+            </h3>
+            <div className="bg-white p-3 rounded-xl mx-auto w-fit">
+              <img src={reopenVietQROrder.vietqr_url} alt="VietQR" className="w-52 h-auto mx-auto" />
+            </div>
+            <p className="text-xs text-orange-400 font-bold">
+              Số tiền: {Number(reopenVietQROrder.total_amount).toLocaleString('vi-VN')}₫
+            </p>
+            <p className="text-[11px] text-neutral-400">
+              Nội dung CK: <strong className="text-rose-400">DON HANG {reopenVietQROrder.order_code}</strong>
+            </p>
+            <button
+              onClick={() => setReopenVietQROrder(null)}
+              className="w-full py-2 rounded-xl bg-neutral-800 text-white text-xs font-semibold"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

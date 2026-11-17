@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2, Video, FileVideo } from 'lucide-react';
 import type { Product, Order } from '../types';
 import { api } from '../services/api';
 
@@ -18,11 +18,16 @@ export const SellerStudio: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
+  // Direct File Upload state
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Sample video templates for quick test
   const sampleVideos = [
-    { label: 'Video Demo 1 (Gadget & Tech)', url: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-man-working-on-a-computer-43288-large.mp4' },
-    { label: 'Video Demo 2 (Streetwear Thời trang)', url: 'https://assets.mixkit.co/videos/preview/mixkit-model-posing-with-a-modern-look-41614-large.mp4' },
-    { label: 'Video Demo 3 (Lifestyle & Decor)', url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-taking-photos-with-a-retro-camera-41620-large.mp4' },
+    { label: 'Demo 1: Công nghệ', url: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-man-working-on-a-computer-43288-large.mp4' },
+    { label: 'Demo 2: Thời trang', url: 'https://assets.mixkit.co/videos/preview/mixkit-model-posing-with-a-modern-look-41614-large.mp4' },
+    { label: 'Demo 3: Lifestyle', url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-taking-photos-with-a-retro-camera-41620-large.mp4' },
   ];
 
   const loadData = async () => {
@@ -47,6 +52,23 @@ export const SellerStudio: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingFile(true);
+      setUploadedFileName(file.name);
+      const res = await api.uploadVideoFile(file);
+      setVideoUrl(res.video_url);
+    } catch (err) {
+      console.error(err);
+      alert('Không thể tải file video lên, bạn có thể dán link URL trực tiếp!');
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
 
   const handleCreateVideo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +96,7 @@ export const SellerStudio: React.FC = () => {
       setTitle('');
       setDescription('');
       setVideoUrl('');
+      setUploadedFileName(null);
       setTimeout(() => setUploadSuccess(null), 5000);
     } catch (err) {
       console.error(err);
@@ -163,7 +186,7 @@ export const SellerStudio: React.FC = () => {
             <div>
               <h2 className="text-sm font-bold text-neutral-200">Thêm Video ngắn mới vào Feed</h2>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Video ngắn sẽ xuất hiện trên trang Feed người mua kèm thẻ sản phẩm bấm mua trực tiếp.
+                Tải video trực tiếp từ điện thoại hoặc chọn video mẫu để gắn thẻ sản phẩm vào feed người mua.
               </p>
             </div>
 
@@ -202,27 +225,69 @@ export const SellerStudio: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-                  Đường dẫn Video MP4 (URL hoặc CDN Cloudinary) <span className="text-rose-400">*</span>
+              {/* Direct File Upload & URL Picker */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-neutral-300">
+                  Video ngắn (Chọn file từ thiết bị hoặc nhập link) <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://... (link video mp4)"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
-                />
+
+                {/* Upload box */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-neutral-700 hover:border-orange-500/70 bg-neutral-800/40 rounded-2xl p-4 text-center cursor-pointer transition-colors flex flex-col items-center justify-center space-y-2"
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="video/mp4,video/quicktime,video/webm"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  {isUploadingFile ? (
+                    <div className="flex items-center space-x-2 text-orange-400 text-xs py-2">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Đang tải file video lên server...</span>
+                    </div>
+                  ) : uploadedFileName ? (
+                    <div className="flex items-center space-x-2 text-emerald-400 text-xs py-1">
+                      <FileVideo className="w-5 h-5" />
+                      <span className="font-semibold">{uploadedFileName}</span>
+                      <span className="text-neutral-500 text-[10px]">(Bấm để đổi file khác)</span>
+                    </div>
+                  ) : (
+                    <>
+                      <FileVideo className="w-8 h-8 text-neutral-500" />
+                      <p className="text-xs text-neutral-300 font-medium">
+                        Bấm vào đây để chọn file video từ điện thoại / máy tính
+                      </p>
+                      <span className="text-[10px] text-neutral-500">Hỗ trợ MP4, MOV, WebM</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Fallback URL Input */}
+                <div className="mt-2">
+                  <input
+                    type="url"
+                    required
+                    placeholder="Hoặc dán link video MP4 trực tiếp..."
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
+                  />
+                </div>
 
                 {/* Quick Pick Samples */}
-                <div className="mt-2 flex flex-wrap gap-2 items-center">
-                  <span className="text-[11px] text-neutral-400">Hoặc chọn video mẫu:</span>
+                <div className="flex flex-wrap gap-2 items-center pt-1">
+                  <span className="text-[11px] text-neutral-400">Hoặc chọn nhanh video mẫu:</span>
                   {sampleVideos.map((sample, idx) => (
                     <button
                       type="button"
                       key={idx}
-                      onClick={() => setVideoUrl(sample.url)}
+                      onClick={() => {
+                        setVideoUrl(sample.url);
+                        setUploadedFileName(null);
+                      }}
                       className="text-[10px] bg-neutral-800 hover:bg-neutral-700 px-2 py-1 rounded-md text-orange-400 border border-neutral-700 transition-colors"
                     >
                       {sample.label}
@@ -230,6 +295,19 @@ export const SellerStudio: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Video Preview if URL exists */}
+              {videoUrl && (
+                <div className="p-3 bg-neutral-800/60 rounded-xl border border-neutral-700/60 space-y-2">
+                  <span className="text-xs font-semibold text-neutral-300 flex items-center space-x-1.5">
+                    <Video className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Xem trước video:</span>
+                  </span>
+                  <div className="w-32 h-44 rounded-lg overflow-hidden bg-black mx-auto">
+                    <video src={videoUrl} className="w-full h-full object-cover" controls playsInline />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -265,7 +343,7 @@ export const SellerStudio: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isUploadingFile}
                 className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-black font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-orange-500/20 transition-all active:scale-95 disabled:opacity-50 mt-2"
               >
                 {isLoading ? (

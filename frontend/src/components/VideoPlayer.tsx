@@ -9,6 +9,7 @@ interface VideoPlayerProps {
   onToggleMute: () => void;
   onOpenProduct: (product: Product) => void;
   onOpenReport: (video: VideoItem) => void;
+  onOpenComments: (videoId: number) => void;
   onLike: (videoId: number) => void;
 }
 
@@ -19,6 +20,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onToggleMute,
   onOpenProduct,
   onOpenReport,
+  onOpenComments,
   onLike,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -176,14 +178,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </button>
 
         {/* Comment Button */}
-        <div className="flex flex-col items-center text-white">
-          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 transition-all text-white">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenComments(video.id);
+          }}
+          className="flex flex-col items-center text-white cursor-pointer group"
+          title="Xem và gửi bình luận"
+        >
+          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md group-hover:bg-black/60 transition-all text-white">
             <MessageCircle className="w-7 h-7" />
           </div>
           <span className="text-xs font-semibold mt-1 drop-shadow-md">
             {video.comments_count}
           </span>
-        </div>
+        </button>
 
         {/* Share Button */}
         <div className="flex flex-col items-center text-white">

@@ -103,3 +103,14 @@ export interface AdminStats {
   recent_orders: Order[];
   recent_reports: Report[];
 }
+
+
+export interface Comment {
+  id: number;
+  video: number;
+  user_name: string;
+  user_avatar: string;
+  content: string;
+  likes_count: number;
+  created_at: string;
+}

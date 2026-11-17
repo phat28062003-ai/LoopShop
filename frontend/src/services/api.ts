@@ -1,4 +1,4 @@
-import type { VideoItem, Product, Order, Report, AdminStats } from '../types';
+import type { VideoItem, Product, Order, Report, AdminStats, Comment } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const API_BASE = `${BASE_URL}/api`;
@@ -55,6 +55,43 @@ export const api = {
     return res.json();
   },
 
+  async uploadVideoFile(file: File): Promise<{ video_url: string; relative_url: string; message: string }> {
+    const formData = new FormData();
+    formData.append('video', file);
+    const res = await fetch(`${API_BASE}/videos/upload_file/`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Không thể tải lên video');
+    return res.json();
+  },
+
+  // Comment endpoints
+  async getComments(videoId: number): Promise<Comment[]> {
+    const res = await fetch(`${API_BASE}/comments/?video=${videoId}`);
+    if (!res.ok) throw new Error('Không thể tải bình luận');
+    return res.json();
+  },
+
+  async postComment(data: { video: number; content: string; user_name?: string }): Promise<Comment> {
+    const res = await fetch(`${API_BASE}/comments/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể gửi bình luận');
+    return res.json();
+  },
+
+  async likeComment(commentId: number): Promise<{ likes_count: number }> {
+    const res = await fetch(`${API_BASE}/comments/${commentId}/like/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('Không thể thích bình luận');
+    return res.json();
+  },
+
   // Product endpoints
   async getProducts(): Promise<Product[]> {
     const res = await fetch(`${API_BASE}/products/`);
@@ -93,6 +130,12 @@ export const api = {
   async getOrders(): Promise<Order[]> {
     const res = await fetch(`${API_BASE}/orders/`);
     if (!res.ok) throw new Error('Không thể tải danh sách đơn hàng');
+    return res.json();
+  },
+
+  async trackOrdersByPhone(phone: string): Promise<Order[]> {
+    const res = await fetch(`${API_BASE}/orders/track/?phone=${encodeURIComponent(phone)}`);
+    if (!res.ok) throw new Error('Không thể tra cứu đơn hàng');
     return res.json();
   },
 

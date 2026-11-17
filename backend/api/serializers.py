@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['id', 'video', 'user_name', 'user_avatar', 'content', 'likes_count', 'created_at']
+        read_only_fields = ['id', 'created_at', 'likes_count']
 
 
 class ProductSerializer(serializers.ModelSerializer):

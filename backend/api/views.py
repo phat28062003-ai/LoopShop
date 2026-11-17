@@ -1,14 +1,23 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view
-from rest_framework.response import Response
+import os
+import re
+import uuid
+from django.conf import settings
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from django.db.models import Sum, Count, Q
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report
+from rest_framework import viewsets, status
+from rest_framework.decorators import action, api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.response import Response
+
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment
 from .serializers import (
     ProductSerializer,
     VideoSerializer,
     OrderCreateSerializer,
     OrderDetailSerializer,
-    ReportSerializer
+    ReportSerializer,
+    CommentSerializer
 )
 
 
@@ -22,7 +31,6 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Video.objects.all().order_by('-created_at')
-        # Khi là public feed thì chỉ lấy video hợp lệ
         is_admin_mode = self.request.query_params.get('admin', 'false').lower() == 'true'
         if not is_admin_mode:
             qs = qs.filter(is_approved=True, is_hidden=False)
@@ -61,6 +69,60 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         except Product.DoesNotExist:
             return Response({'error': 'Sản phẩm không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_file(self, request):
+        """
+        Tải video trực tiếp từ điện thoại hoặc máy tính lên server/media
+        """
+        video_file = request.FILES.get('video')
+        if not video_file:
+            return Response({'error': 'Vui lòng chọn file video hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tạo tên file ngẫu nhiên an toàn
+        ext = os.path.splitext(video_file.name)[1].lower() or '.mp4'
+        filename = f"videos/{uuid.uuid4().hex}{ext}"
+        saved_path = default_storage.save(filename, ContentFile(video_file.read()))
+        file_url = f"{settings.MEDIA_URL}{saved_path}"
+
+        # Trả về full URL
+        full_url = request.build_absolute_uri(file_url)
+        return Response({
+            'video_url': full_url,
+            'relative_url': file_url,
+            'filename': video_file.name,
+            'size': video_file.size,
+            'message': 'Tải video lên thành công!'
+        })
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    """
+    API bình luận dưới video ngắn
+    """
+    queryset = Comment.objects.all().order_by('-created_at')
+    serializer_class = CommentSerializer
+
+    def get_queryset(self):
+        qs = Comment.objects.all().order_by('-created_at')
+        video_id = self.request.query_params.get('video')
+        if video_id:
+            qs = qs.filter(video_id=video_id)
+        return qs
+
+    def perform_create(self, serializer):
+        comment = serializer.save()
+        # Cập nhật số lượng bình luận của video
+        video = comment.video
+        video.comments_count = video.comments.count()
+        video.save(update_fields=['comments_count'])
+
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        comment = self.get_object()
+        comment.likes_count += 1
+        comment.save(update_fields=['likes_count'])
+        return Response({'likes_count': comment.likes_count})
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(is_active=True).order_by('-created_at')
@@ -97,6 +159,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'status': order.status, 'message': f'Trạng thái đổi thành {order.get_status_display()}'})
         return Response({'error': 'Trạng thái không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['get'])
+    def track(self, request):
+        """Khách hàng tra cứu danh sách đơn hàng theo số điện thoại"""
+        phone = request.query_params.get('phone', '').strip()
+        if not phone:
+            return Response({'error': 'Vui lòng cung cấp số điện thoại'}, status=status.HTTP_400_BAD_REQUEST)
+        orders = Order.objects.filter(customer_phone=phone).order_by('-created_at')
+        return Response(OrderDetailSerializer(orders, many=True).data)
+
 
 class ReportViewSet(viewsets.ModelViewSet):
     queryset = Report.objects.all().order_by('-created_at')
@@ -127,6 +198,45 @@ class ReportViewSet(viewsets.ModelViewSet):
         report.status = 'dismissed'
         report.save(update_fields=['status'])
         return Response({'report_id': report.id, 'status': 'dismissed', 'message': 'Đã bỏ qua báo cáo'})
+
+
+@api_view(['POST'])
+def vietqr_webhook(request):
+    """
+    Webhook tự động nhận thông báo biến động số dư VietQR (Napas247 / SePay / Casso)
+    Khi người mua chuyển khoản đúng cú pháp "DON HANG <MÃ_ĐƠN>", server tự động
+    chuyển trạng thái đơn sang 'confirmed' và 'is_paid = True' trong vòng 3 giây!
+    """
+    data = request.data
+    content = str(data.get('content', '') or data.get('description', '') or data.get('referenceCode', ''))
+    transfer_amount = data.get('transferAmount') or data.get('amount', 0)
+
+    # Tìm mã đơn hàng dạng PH-XXXXXXXX trong nội dung chuyển khoản
+    match = re.search(r'PH-[A-Za-z0-9]+', content, re.IGNORECASE)
+    if not match:
+        return Response({
+            'success': False,
+            'message': 'Không tìm thấy mã đơn hàng PH-XXXX trong nội dung chuyển khoản',
+            'raw_content': content
+        }, status=status.HTTP_200_OK)
+
+    order_code = match.group(0).upper()
+    try:
+        order = Order.objects.get(order_code=order_code)
+        order.is_paid = True
+        order.status = 'confirmed'
+        order.save(update_fields=['is_paid', 'status', 'updated_at'])
+        return Response({
+            'success': True,
+            'order_code': order.order_code,
+            'status': 'confirmed',
+            'message': f'Đơn hàng {order.order_code} đã được tự động kích hoạt thanh toán thành công!'
+        })
+    except Order.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': f'Mã đơn hàng {order_code} không tồn tại trên hệ thống'
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

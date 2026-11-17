@@ -131,3 +131,18 @@ class Report(models.Model):
 
     def __str__(self):
         return f"Report #{self.id} on Video #{self.video.id}: {self.reason}"
+
+
+class Comment(models.Model):
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='comments')
+    user_name = models.CharField(max_length=100, default='Khách mua hàng')
+    user_avatar = models.CharField(max_length=500, blank=True)
+    content = models.TextField()
+    likes_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_name}: {self.content[:30]}"

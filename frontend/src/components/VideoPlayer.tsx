@@ -32,6 +32,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasLiked, setHasLiked] = useState<boolean>(false);
   const [likesCount, setLikesCount] = useState<number>(video.likes_count);
   const [showHeartAnim, setShowHeartAnim] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
+
+  const handleTimeUpdate = () => {
+    const videoEl = videoRef.current;
+    if (videoEl && videoEl.duration) {
+      setProgress((videoEl.currentTime / videoEl.duration) * 100);
+    }
+  };
 
   // Auto-play / pause based on active state
   useEffect(() => {
@@ -108,6 +116,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         muted={isMuted}
         onClick={handleTogglePlay}
         onDoubleClick={handleDoubleTap}
+        onTimeUpdate={handleTimeUpdate}
       />
 
       {/* Floating Heart Animation on Double Tap */}
@@ -321,6 +330,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <span>🎵 Âm thanh gốc - @{video.uploader_name}</span>
           </div>
         </div>
+      </div>
+
+      {/* Bottom Sleek Video Progress Bar (TikTok / Shopee Video style) */}
+      <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-white/20 z-30 pointer-events-none">
+        <div 
+          className="h-full bg-white/90 transition-all duration-100 ease-linear rounded-r-full"
+          style={{ width: `${progress}%` }}
+        />
       </div>
     </div>
   );

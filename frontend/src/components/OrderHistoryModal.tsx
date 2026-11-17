@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Package, Loader2, QrCode } from 'lucide-react';
+import { X, Search, Package, Loader2, QrCode, AlertCircle, RefreshCw } from 'lucide-react';
 import type { Order } from '../types';
 import { api } from '../services/api';
 
@@ -18,6 +18,7 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && phone.trim()) {
@@ -31,13 +32,14 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
 
     try {
       setIsLoading(true);
+      setErrorMsg(null);
       setHasSearched(true);
       localStorage.setItem('loopshop_customer_phone', phone.trim());
       const res = await api.trackOrdersByPhone(phone.trim());
       setOrders(res);
     } catch (err) {
       console.error(err);
-      alert('Không thể tra cứu đơn hàng, vui lòng thử lại!');
+      setErrorMsg('Máy chủ Render đang phản hồi. Vui lòng bấm Thử lại để tải đơn hàng!');
     } finally {
       setIsLoading(false);
     }
@@ -100,13 +102,21 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
               <button
                 key={p.phone}
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setPhone(p.phone);
                   localStorage.setItem('loopshop_customer_phone', p.phone);
-                  api.trackOrdersByPhone(p.phone).then((res) => {
-                    setOrders(res);
+                  try {
+                    setIsLoading(true);
+                    setErrorMsg(null);
                     setHasSearched(true);
-                  });
+                    const res = await api.trackOrdersByPhone(p.phone);
+                    setOrders(res);
+                  } catch (err) {
+                    console.error(err);
+                    setErrorMsg('Máy chủ đang phản hồi. Vui lòng bấm Thử lại để tải đơn!');
+                  } finally {
+                    setIsLoading(false);
+                  }
                 }}
                 className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap border transition-all cursor-pointer ${
                   phone === p.phone
@@ -122,7 +132,20 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
 
         {/* Content */}
         <div className="p-4 overflow-y-auto space-y-3 flex-1">
-          {isLoading ? (
+          {errorMsg ? (
+            <div className="py-8 px-4 flex flex-col items-center justify-center text-center space-y-3 bg-neutral-950/60 rounded-2xl border border-rose-500/30">
+              <AlertCircle className="w-8 h-8 text-rose-400" />
+              <p className="text-xs text-rose-200 max-w-xs">{errorMsg}</p>
+              <button
+                type="button"
+                onClick={() => handleSearch()}
+                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-black text-xs font-bold transition-all shadow cursor-pointer active:scale-95 flex items-center space-x-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Thử lại ngay</span>
+              </button>
+            </div>
+          ) : isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center text-neutral-500 space-y-2">
               <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
               <p className="text-xs">Đang tìm đơn hàng...</p>

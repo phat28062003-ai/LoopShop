@@ -1,6 +1,9 @@
 import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message } from '../types';
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : 'https://loopshop.onrender.com')
+).replace(/\/$/, '');
 const API_BASE = `${BASE_URL}/api`;
 
 export const api = {

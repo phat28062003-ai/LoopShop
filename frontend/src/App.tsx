@@ -449,13 +449,23 @@ export const App: React.FC = () => {
                 </div>
               ) : videos.length === 0 ? (
                 <div className="w-full h-full flex flex-col items-center justify-center text-neutral-400 p-6 text-center space-y-3 bg-neutral-950">
-                  <p className="text-sm font-semibold">Chưa có video nào trên Feed</p>
+                  <p className="text-sm font-semibold">Chưa tải được video trên Feed</p>
+                  <p className="text-xs text-neutral-500 max-w-xs">
+                    Máy chủ Render có thể mất vài giây để phản hồi lần đầu. Bấm nút dưới để thử lại nhé!
+                  </p>
+                  <button
+                    onClick={fetchFeedVideos}
+                    className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-black text-xs font-bold transition-all shadow cursor-pointer flex items-center space-x-1.5 active:scale-95"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Tải lại video ngay</span>
+                  </button>
                   {isAdminLoggedIn && (
                     <button
                       onClick={() => setCurrentTab('seller')}
-                      className="px-4 py-2 rounded-xl bg-orange-500 text-black text-xs font-bold"
+                      className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 text-xs font-medium"
                     >
-                      Đăng video ngay
+                      Đăng video mới
                     </button>
                   )}
                 </div>

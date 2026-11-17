@@ -14,7 +14,7 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   onClose,
   onOpenVietQR,
 }) => {
-  const [phone, setPhone] = useState<string>(() => localStorage.getItem('loopshop_customer_phone') || '');
+  const [phone, setPhone] = useState<string>(() => localStorage.getItem('loopshop_customer_phone') || '0987654321');
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -68,23 +68,56 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
         </div>
 
         {/* Search Bar */}
-        <form onSubmit={handleSearch} className="p-3 border-b border-neutral-800 bg-neutral-950/60 flex space-x-2">
-          <input
-            type="tel"
-            required
-            placeholder="Nhập số điện thoại đặt hàng (ví dụ: 0901234567)..."
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !phone.trim()}
-            className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-black font-bold text-xs flex items-center space-x-1.5 transition-all active:scale-95 flex-shrink-0"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            <span>Tìm</span>
-          </button>
+        <form onSubmit={handleSearch} className="p-3 border-b border-neutral-800 bg-neutral-950/60 flex flex-col space-y-2">
+          <div className="flex space-x-2">
+            <input
+              type="tel"
+              required
+              placeholder="Nhập số điện thoại đặt hàng (ví dụ: 0987654321)..."
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !phone.trim()}
+              className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-black font-bold text-xs flex items-center space-x-1.5 transition-all active:scale-95 flex-shrink-0 cursor-pointer"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              <span>Tìm</span>
+            </button>
+          </div>
+
+          {/* Quick Demo Phone Chips */}
+          <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pt-0.5">
+            <span className="text-[10px] text-neutral-400 whitespace-nowrap">SĐT mẫu:</span>
+            {[
+              { phone: '0987654321', name: 'Tuấn (Đã nhận)' },
+              { phone: '0912345678', name: 'Nam (Đã CK)' },
+              { phone: '0933221100', name: 'Mai (Đang giao)' },
+              { phone: '0908889999', name: 'Bảo (Chờ QR)' },
+            ].map((p) => (
+              <button
+                key={p.phone}
+                type="button"
+                onClick={() => {
+                  setPhone(p.phone);
+                  localStorage.setItem('loopshop_customer_phone', p.phone);
+                  api.trackOrdersByPhone(p.phone).then((res) => {
+                    setOrders(res);
+                    setHasSearched(true);
+                  });
+                }}
+                className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap border transition-all cursor-pointer ${
+                  phone === p.phone
+                    ? 'bg-orange-500 text-black border-orange-500 font-bold'
+                    : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:border-orange-500/50'
+                }`}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
         </form>
 
         {/* Content */}

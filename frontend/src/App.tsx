@@ -43,7 +43,65 @@ export const App: React.FC = () => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [currentVideoIndex, setCurrentVideoIndex] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(true); // start muted for autoplay compliance
-  const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Giỏ hàng mẫu có sẵn sản phẩm để người dùng / Phát vào xem và trải nghiệm ngay
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('loopshop_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        product: {
+          id: 1,
+          seller_name: 'Phát Audio Official',
+          title: 'Tai nghe không dây chống ồn TWS Pro Max (Bluetooth 5.3)',
+          description: 'Âm bass cực căng, khử ồn chủ động ANC 35dB, pin trâu 30h kèm hộp sạc.',
+          category: 'tech',
+          price: 399000,
+          original_price: 650000,
+          image_url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80',
+          stock: 85,
+          rating: 4.9,
+          sold_count: 430,
+          is_active: true,
+        },
+        quantity: 1,
+      },
+      {
+        product: {
+          id: 2,
+          seller_name: 'Streetwear by Phát',
+          title: 'Áo thun Oversize Unisex Cotton 100% 250gsm Local Brand',
+          description: 'Form rộng chuẩn Hàn Quốc, chất vải cotton 2 chiều dày dặn.',
+          category: 'fashion',
+          price: 189000,
+          original_price: 290000,
+          image_url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80',
+          stock: 120,
+          rating: 4.8,
+          sold_count: 612,
+          is_active: true,
+        },
+        quantity: 1,
+      },
+    ];
+  });
+
+  // Lưu giỏ hàng vào localStorage mỗi khi thay đổi
+  useEffect(() => {
+    try {
+      localStorage.setItem('loopshop_cart', JSON.stringify(cart));
+    } catch {
+      // ignore
+    }
+  }, [cart]);
+
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true); // preview frame on desktop
   const [isLoading, setIsLoading] = useState<boolean>(true);
 

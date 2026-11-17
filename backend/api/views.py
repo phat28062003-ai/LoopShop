@@ -356,7 +356,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
         qs = Conversation.objects.all().order_by('-updated_at')
         user = self.request.query_params.get('user')
         if user:
-            qs = qs.filter(Q(participant_1__iexact=user) | Q(participant_2__iexact=user))
+            user_qs = qs.filter(Q(participant_1__iexact=user) | Q(participant_2__iexact=user))
+            # Nếu người dùng có cuộc trò chuyện riêng thì hiển thị; nếu chưa có thì hiển thị toàn bộ cuộc trò chuyện mẫu để xem và tương tác
+            if user_qs.exists():
+                return user_qs
         return qs
 
     @action(detail=False, methods=['post'])

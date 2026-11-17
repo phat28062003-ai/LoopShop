@@ -34,6 +34,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showHeartAnim, setShowHeartAnim] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
 
+  // Tự động phân giải link video mượt mà, chuyển đổi link Mixkit lỗi sang video nội bộ cực nhanh
+  const resolveVideoUrl = (url: string) => {
+    if (!url) return '/videos/v1.mp4';
+    if (url.includes('mixkit.co')) {
+      const idx = ((video.id - 1) % 8) + 1;
+      return `/videos/v${idx}.mp4`;
+    }
+    return url;
+  };
+
+  const [currentSrc, setCurrentSrc] = useState<string>(() => resolveVideoUrl(video.video_url));
+
+  useEffect(() => {
+    setCurrentSrc(resolveVideoUrl(video.video_url));
+  }, [video.video_url, video.id]);
+
+  const handleVideoError = () => {
+    const fallback = `/videos/v${((video.id - 1) % 8) + 1}.mp4`;
+    if (currentSrc !== fallback) {
+      console.warn(`Video failed to load from ${currentSrc}, falling back to ${fallback}`);
+      setCurrentSrc(fallback);
+    }
+  };
+
   const handleTimeUpdate = () => {
     const videoEl = videoRef.current;
     if (videoEl && videoEl.duration) {
@@ -48,6 +72,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     if (isActive) {
       videoEl.currentTime = 0;
+      if (isMuted) {
+        videoEl.muted = true;
+      }
       const playPromise = videoEl.play();
       if (playPromise !== undefined) {
         playPromise
@@ -55,14 +82,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           .catch(() => {
             // Browser autoplay restrictions: fallback to muted
             videoEl.muted = true;
-            videoEl.play().catch(() => setIsPlaying(false));
+            videoEl.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
           });
       }
     } else {
       videoEl.pause();
       setIsPlaying(false);
     }
-  }, [isActive]);
+  }, [isActive, isMuted, currentSrc]);
 
   // Handle tap to play/pause
   const handleTogglePlay = () => {
@@ -70,11 +97,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!videoEl) return;
 
     if (videoEl.paused) {
-      videoEl.play();
-      setIsPlaying(true);
+      videoEl.play().catch(() => {});
     } else {
       videoEl.pause();
-      setIsPlaying(false);
     }
   };
 
@@ -108,15 +133,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* Video element */}
       <video
         ref={videoRef}
-        src={video.video_url}
+        src={currentSrc}
         poster={video.thumbnail_url}
         className="w-full h-full object-cover cursor-pointer"
         loop
         playsInline
+        autoPlay={isActive}
         muted={isMuted}
         onClick={handleTogglePlay}
         onDoubleClick={handleDoubleTap}
         onTimeUpdate={handleTimeUpdate}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onError={handleVideoError}
       />
 
       {/* Floating Heart Animation on Double Tap */}

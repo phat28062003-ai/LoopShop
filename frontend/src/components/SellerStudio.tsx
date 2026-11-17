@@ -25,9 +25,9 @@ export const SellerStudio: React.FC = () => {
 
   // Sample video templates for quick test
   const sampleVideos = [
-    { label: 'Demo 1: Công nghệ', url: 'https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-man-working-on-a-computer-43288-large.mp4' },
-    { label: 'Demo 2: Thời trang', url: 'https://assets.mixkit.co/videos/preview/mixkit-model-posing-with-a-modern-look-41614-large.mp4' },
-    { label: 'Demo 3: Lifestyle', url: 'https://assets.mixkit.co/videos/preview/mixkit-girl-taking-photos-with-a-retro-camera-41620-large.mp4' },
+    { label: 'Demo 1: Công nghệ', url: '/videos/v1.mp4' },
+    { label: 'Demo 2: Thời trang', url: '/videos/v2.mp4' },
+    { label: 'Demo 3: Lifestyle', url: '/videos/v4.mp4' },
   ];
 
   const loadData = async () => {

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -108,3 +108,35 @@ class ReportSerializer(serializers.ModelSerializer):
             'id', 'video', 'video_title', 'video_url', 'reason',
             'details', 'status', 'created_at'
         ]
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    attached_product = ProductSerializer(read_only=True)
+    attached_product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source='attached_product', write_only=True, required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Message
+        fields = [
+            'id', 'conversation', 'is_community_room', 'sender_name',
+            'sender_avatar', 'recipient_name', 'content', 'attached_product',
+            'attached_product_id', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    messages_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Conversation
+        fields = [
+            'id', 'participant_1', 'participant_2', 'p1_avatar',
+            'p2_avatar', 'last_message', 'updated_at', 'created_at',
+            'messages_count'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_messages_count(self, obj):
+        return obj.messages.count()

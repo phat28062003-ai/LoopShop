@@ -10,14 +10,16 @@ from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message
 from .serializers import (
     ProductSerializer,
     VideoSerializer,
     OrderCreateSerializer,
     OrderDetailSerializer,
     ReportSerializer,
-    CommentSerializer
+    CommentSerializer,
+    ConversationSerializer,
+    MessageSerializer
 )
 
 
@@ -276,3 +278,70 @@ def admin_dashboard_stats(request):
         'recent_orders': OrderDetailSerializer(recent_orders, many=True).data,
         'recent_reports': ReportSerializer(recent_reports, many=True).data
     })
+
+
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    """
+    Quản lý các cuộc trò chuyện riêng 1-1 giữa các thành viên trong cộng đồng
+    """
+    queryset = Conversation.objects.all().order_by('-updated_at')
+    serializer_class = ConversationSerializer
+
+    def get_queryset(self):
+        qs = Conversation.objects.all().order_by('-updated_at')
+        user = self.request.query_params.get('user')
+        if user:
+            qs = qs.filter(Q(participant_1__iexact=user) | Q(participant_2__iexact=user))
+        return qs
+
+    @action(detail=False, methods=['post'])
+    def start_or_get(self, request):
+        user1 = request.data.get('user1', '').strip()
+        user2 = request.data.get('user2', '').strip()
+        p1_avatar = request.data.get('p1_avatar', '')
+        p2_avatar = request.data.get('p2_avatar', '')
+
+        if not user1 or not user2:
+            return Response({'error': 'Thiếu thông tin người tham gia'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tìm cuộc trò chuyện hiện có
+        conv = Conversation.objects.filter(
+            (Q(participant_1__iexact=user1) & Q(participant_2__iexact=user2)) |
+            (Q(participant_1__iexact=user2) & Q(participant_2__iexact=user1))
+        ).first()
+
+        if not conv:
+            conv = Conversation.objects.create(
+                participant_1=user1,
+                participant_2=user2,
+                p1_avatar=p1_avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={user1}",
+                p2_avatar=p2_avatar or f"https://api.dicebear.com/7.x/bottts/svg?seed={user2}",
+                last_message="Bắt đầu cuộc trò chuyện"
+            )
+
+        return Response(ConversationSerializer(conv).data)
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """
+    Quản lý tin nhắn trong phòng Chat Cộng Đồng và Tin nhắn 1-1
+    """
+    queryset = Message.objects.all().order_by('created_at')
+    serializer_class = MessageSerializer
+
+    def get_queryset(self):
+        community = self.request.query_params.get('community', 'false').lower() == 'true'
+        conversation_id = self.request.query_params.get('conversation')
+        if community:
+            return Message.objects.filter(is_community_room=True).order_by('created_at')
+        if conversation_id:
+            return Message.objects.filter(conversation_id=conversation_id).order_by('created_at')
+        return Message.objects.all().order_by('created_at')
+
+    def perform_create(self, serializer):
+        msg = serializer.save()
+        if msg.conversation:
+            conv = msg.conversation
+            conv.last_message = msg.content[:100]
+            conv.save(update_fields=['last_message', 'updated_at'])

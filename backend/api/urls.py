@@ -6,6 +6,8 @@ from .views import (
     OrderViewSet,
     ReportViewSet,
     CommentViewSet,
+    ConversationViewSet,
+    MessageViewSet,
     vietqr_webhook,
     admin_dashboard_stats
 )
@@ -16,6 +18,8 @@ router.register(r'products', ProductViewSet, basename='product')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'comments', CommentViewSet, basename='comment')
+router.register(r'conversations', ConversationViewSet, basename='conversation')
+router.register(r'messages', MessageViewSet, basename='message')
 
 urlpatterns = [
     path('payment/webhook/', vietqr_webhook, name='vietqr-webhook'),

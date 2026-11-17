@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Heart, MessageCircle, Share2, ShieldAlert, Volume2, VolumeX, ShoppingBag, Tag } from 'lucide-react';
+import { Heart, MessageCircle, Share2, ShieldAlert, Volume2, VolumeX, ShoppingBag, Tag, MessageSquare } from 'lucide-react';
 import type { VideoItem, Product } from '../types';
 
 interface VideoPlayerProps {
@@ -10,6 +10,7 @@ interface VideoPlayerProps {
   onOpenProduct: (product: Product) => void;
   onOpenReport: (video: VideoItem) => void;
   onOpenComments: (videoId: number) => void;
+  onStartChatWithCreator?: (creatorName: string) => void;
   onLike: (videoId: number) => void;
 }
 
@@ -21,6 +22,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onOpenProduct,
   onOpenReport,
   onOpenComments,
+  onStartChatWithCreator,
   onLike,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -273,12 +275,33 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {/* Creator Info and Caption */}
         <div className="text-white drop-shadow-md pr-4 pointer-events-auto">
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-sm hover:underline cursor-pointer">
+            <span 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onStartChatWithCreator) onStartChatWithCreator(video.uploader_name);
+              }}
+              className="font-bold text-sm hover:underline cursor-pointer"
+            >
               @{video.uploader_name}
             </span>
             <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded text-white font-medium">
               Tác giả
             </span>
+
+            {onStartChatWithCreator && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartChatWithCreator(video.uploader_name);
+                }}
+                className="bg-orange-500/30 hover:bg-orange-500/50 text-orange-300 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center space-x-1 border border-orange-500/40 transition-colors"
+                title={`Nhắn tin với @${video.uploader_name}`}
+              >
+                <MessageSquare className="w-2.5 h-2.5" />
+                <span>Nhắn tin</span>
+              </button>
+            )}
           </div>
 
           <p className="text-xs text-white/95 mt-1 font-normal line-clamp-2 leading-relaxed">

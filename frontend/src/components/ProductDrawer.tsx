@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, ShieldCheck, ShoppingCart, Zap, Plus, Minus } from 'lucide-react';
+import { X, Star, ShieldCheck, ShoppingCart, Zap, Plus, Minus, MessageCircle } from 'lucide-react';
 import type { Product } from '../types';
 
 interface ProductDrawerProps {
@@ -8,6 +8,7 @@ interface ProductDrawerProps {
   onClose: () => void;
   onAddToCart: (product: Product, quantity: number) => void;
   onBuyNow: (product: Product, quantity: number) => void;
+  onChatAboutProduct?: (product: Product) => void;
 }
 
 export const ProductDrawer: React.FC<ProductDrawerProps> = ({
@@ -16,6 +17,7 @@ export const ProductDrawer: React.FC<ProductDrawerProps> = ({
   onClose,
   onAddToCart,
   onBuyNow,
+  onChatAboutProduct,
 }) => {
   const [quantity, setQuantity] = useState<number>(1);
 
@@ -142,6 +144,20 @@ export const ProductDrawer: React.FC<ProductDrawerProps> = ({
               </button>
             </div>
           </div>
+          {/* Chat with Shop Button */}
+          {onChatAboutProduct && (
+            <button
+              type="button"
+              onClick={() => {
+                onChatAboutProduct(product);
+                onClose();
+              }}
+              className="w-full py-2.5 px-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 font-semibold text-xs flex items-center justify-center space-x-2 border border-orange-500/30 transition-all active:scale-95"
+            >
+              <MessageCircle className="w-4 h-4 text-orange-400" />
+              <span>Chat hỏi Người Bán về sản phẩm này</span>
+            </button>
+          )}
         </div>
 
         {/* Footer Actions */}

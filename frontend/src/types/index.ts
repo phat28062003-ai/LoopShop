@@ -114,3 +114,29 @@ export interface Comment {
   likes_count: number;
   created_at: string;
 }
+
+
+export interface Message {
+  id: number;
+  conversation?: number | null;
+  is_community_room: boolean;
+  sender_name: string;
+  sender_avatar: string;
+  recipient_name: string;
+  content: string;
+  attached_product?: Product | null;
+  attached_product_id?: number | null;
+  created_at: string;
+}
+
+export interface Conversation {
+  id: number;
+  participant_1: string;
+  participant_2: string;
+  p1_avatar: string;
+  p2_avatar: string;
+  last_message: string;
+  updated_at: string;
+  created_at: string;
+  messages_count: number;
+}

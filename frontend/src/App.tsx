@@ -9,7 +9,8 @@ import {
   RefreshCw, 
   ChevronDown, 
   ChevronUp,
-  PackageCheck
+  PackageCheck,
+  MessageSquare
 } from 'lucide-react';
 import type { VideoItem, Product, CartItem, Order } from './types';
 import { api } from './services/api';
@@ -21,6 +22,7 @@ import { ReportModal } from './components/ReportModal';
 import { CommentDrawer } from './components/CommentDrawer';
 import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { ChatCenterModal } from './components/ChatCenterModal';
 import { SellerStudio } from './components/SellerStudio';
 import { AdminDashboard } from './components/AdminDashboard';
 
@@ -53,6 +55,11 @@ export const App: React.FC = () => {
   const [isCommentDrawerOpen, setIsCommentDrawerOpen] = useState<boolean>(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState<boolean>(false);
   const [reopenVietQROrder, setReopenVietQROrder] = useState<Order | null>(null);
+
+  // Community & Direct Messaging State
+  const [isChatCenterOpen, setIsChatCenterOpen] = useState<boolean>(false);
+  const [chatTargetUser, setChatTargetUser] = useState<string | null>(null);
+  const [chatAttachedProduct, setChatAttachedProduct] = useState<Product | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -127,7 +134,8 @@ export const App: React.FC = () => {
         isReportModalOpen || 
         isCommentDrawerOpen || 
         isOrderHistoryOpen ||
-        isAdminLoginOpen
+        isAdminLoginOpen ||
+        isChatCenterOpen
       ) return;
 
       if (e.key === 'ArrowDown') {
@@ -141,7 +149,19 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentVideoIndex, videos.length, currentTab, isProductDrawerOpen, isCartModalOpen, isCheckoutModalOpen, isReportModalOpen, isCommentDrawerOpen, isOrderHistoryOpen, isAdminLoginOpen]);
+  }, [
+    currentVideoIndex, 
+    videos.length, 
+    currentTab, 
+    isProductDrawerOpen, 
+    isCartModalOpen, 
+    isCheckoutModalOpen, 
+    isReportModalOpen, 
+    isCommentDrawerOpen, 
+    isOrderHistoryOpen, 
+    isAdminLoginOpen,
+    isChatCenterOpen
+  ]);
 
   // Handle scroll snap index detection
   const handleScroll = () => {
@@ -217,6 +237,19 @@ export const App: React.FC = () => {
     setIsCommentDrawerOpen(true);
   };
 
+  // Chat handlers
+  const handleStartChatWithCreator = (creatorName: string) => {
+    setChatTargetUser(creatorName);
+    setChatAttachedProduct(null);
+    setIsChatCenterOpen(true);
+  };
+
+  const handleChatAboutProduct = (prod: Product) => {
+    setChatTargetUser(prod.seller_name);
+    setChatAttachedProduct(prod);
+    setIsChatCenterOpen(true);
+  };
+
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -246,6 +279,20 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2 pointer-events-auto">
+          {/* Chat Center button on desktop */}
+          <button
+            onClick={() => {
+              setChatTargetUser(null);
+              setChatAttachedProduct(null);
+              setIsChatCenterOpen(true);
+            }}
+            className="flex items-center space-x-1.5 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-neutral-800 text-xs text-orange-400 hover:text-orange-300 shadow-xl transition-all"
+            title="Mở phòng chat cộng đồng & tin nhắn"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Trò chuyện</span>
+          </button>
+
           {/* Order Tracking button on desktop */}
           <button
             onClick={() => setIsOrderHistoryOpen(true)}
@@ -348,6 +395,7 @@ export const App: React.FC = () => {
                             setIsReportModalOpen(true);
                           }}
                           onOpenComments={handleOpenComments}
+                          onStartChatWithCreator={handleStartChatWithCreator}
                           onLike={handleLike}
                         />
                       </div>
@@ -372,8 +420,21 @@ export const App: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Floating Top Right Buttons on Feed: Order Tracking + Cart */}
+                  {/* Floating Top Right Buttons on Feed: Chat Center + Order Tracking + Cart */}
                   <div className="absolute top-4 right-14 z-30 flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setChatTargetUser(null);
+                        setChatAttachedProduct(null);
+                        setIsChatCenterOpen(true);
+                      }}
+                      className="relative p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
+                      title="Phòng trò chuyện & tin nhắn"
+                    >
+                      <MessageSquare className="w-5 h-5 text-orange-400" />
+                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </button>
+
                     <button
                       onClick={() => setIsOrderHistoryOpen(true)}
                       className="p-2.5 rounded-full bg-black/50 backdrop-blur-md text-white hover:bg-black/70 transition-all shadow-lg active:scale-95"
@@ -424,7 +485,21 @@ export const App: React.FC = () => {
             <span className="text-[10px] mt-0.5">Feed Video</span>
           </button>
 
-          {/* Public Tab 2: Order Tracking */}
+          {/* Public Tab 2: Community Chat & Direct Messages */}
+          <button
+            onClick={() => {
+              setChatTargetUser(null);
+              setChatAttachedProduct(null);
+              setIsChatCenterOpen(true);
+            }}
+            className="relative flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
+          >
+            <MessageSquare className="w-5 h-5 text-orange-400" />
+            <span className="text-[10px] mt-0.5">Trò chuyện</span>
+            <span className="absolute top-1 right-3 w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          </button>
+
+          {/* Public Tab 3: Order Tracking */}
           <button
             onClick={() => setIsOrderHistoryOpen(true)}
             className="flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
@@ -433,7 +508,7 @@ export const App: React.FC = () => {
             <span className="text-[10px] mt-0.5">Đơn mua</span>
           </button>
 
-          {/* Public Tab 3: Cart */}
+          {/* Public Tab 4: Cart */}
           <button
             onClick={() => setIsCartModalOpen(true)}
             className="relative flex flex-col items-center py-1 px-3 text-neutral-400 hover:text-white transition-all"
@@ -485,6 +560,7 @@ export const App: React.FC = () => {
         onClose={() => setIsProductDrawerOpen(false)}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
+        onChatAboutProduct={handleChatAboutProduct}
       />
 
       <CartModal
@@ -520,6 +596,18 @@ export const App: React.FC = () => {
         isOpen={isOrderHistoryOpen}
         onClose={() => setIsOrderHistoryOpen(false)}
         onOpenVietQR={(ord) => setReopenVietQROrder(ord)}
+      />
+
+      {/* Community & 1-on-1 Chat Center Modal */}
+      <ChatCenterModal
+        isOpen={isChatCenterOpen}
+        onClose={() => setIsChatCenterOpen(false)}
+        initialTargetUser={chatTargetUser}
+        initialAttachedProduct={chatAttachedProduct}
+        onViewProduct={(p) => {
+          setSelectedProduct(p);
+          setIsProductDrawerOpen(true);
+        }}
       />
 
       {/* Secret Admin Login Modal */}

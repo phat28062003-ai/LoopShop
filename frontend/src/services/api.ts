@@ -1,4 +1,4 @@
-import type { VideoItem, Product, Order, Report, AdminStats, Comment } from '../types';
+import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message } from '../types';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const API_BASE = `${BASE_URL}/api`;
@@ -197,6 +197,58 @@ export const api = {
   async getAdminStats(): Promise<AdminStats> {
     const res = await fetch(`${API_BASE}/admin/stats/`);
     if (!res.ok) throw new Error('Không thể tải thống kê admin');
+    return res.json();
+  },
+
+  // Chat & Messaging endpoints
+  async getCommunityMessages(): Promise<Message[]> {
+    const res = await fetch(`${API_BASE}/messages/?community=true`);
+    if (!res.ok) throw new Error('Không thể tải tin nhắn cộng đồng');
+    return res.json();
+  },
+
+  async getConversations(username: string): Promise<Conversation[]> {
+    const res = await fetch(`${API_BASE}/conversations/?user=${encodeURIComponent(username)}`);
+    if (!res.ok) throw new Error('Không thể tải danh sách trò chuyện');
+    return res.json();
+  },
+
+  async getConversationMessages(conversationId: number): Promise<Message[]> {
+    const res = await fetch(`${API_BASE}/messages/?conversation=${conversationId}`);
+    if (!res.ok) throw new Error('Không thể tải tin nhắn cuộc trò chuyện');
+    return res.json();
+  },
+
+  async startOrGetConversation(data: {
+    user1: string;
+    user2: string;
+    p1_avatar?: string;
+    p2_avatar?: string;
+  }): Promise<Conversation> {
+    const res = await fetch(`${API_BASE}/conversations/start_or_get/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể mở cuộc trò chuyện');
+    return res.json();
+  },
+
+  async sendMessage(data: {
+    conversation?: number | null;
+    is_community_room?: boolean;
+    sender_name: string;
+    sender_avatar?: string;
+    recipient_name?: string;
+    content: string;
+    attached_product_id?: number | null;
+  }): Promise<Message> {
+    const res = await fetch(`${API_BASE}/messages/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể gửi tin nhắn');
     return res.json();
   },
 };

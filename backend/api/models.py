@@ -146,3 +146,37 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.user_name}: {self.content[:30]}"
+
+
+class Conversation(models.Model):
+    participant_1 = models.CharField(max_length=100)
+    participant_2 = models.CharField(max_length=100)
+    p1_avatar = models.CharField(max_length=500, blank=True)
+    p2_avatar = models.CharField(max_length=500, blank=True)
+    last_message = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"Chat between {self.participant_1} and {self.participant_2}"
+
+
+class Message(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
+    is_community_room = models.BooleanField(default=False)
+    sender_name = models.CharField(max_length=100)
+    sender_avatar = models.CharField(max_length=500, blank=True)
+    recipient_name = models.CharField(max_length=100, blank=True)
+    content = models.TextField()
+    attached_product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='chat_messages')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        dest = 'Community' if self.is_community_room else self.recipient_name
+        return f"{self.sender_name} -> {dest}: {self.content[:30]}"

@@ -281,7 +281,7 @@ export const SellerStudio: React.FC = () => {
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept="video/mp4,video/quicktime,video/webm"
+                  accept="video/*"
                   onChange={handleFileChange}
                   className="hidden"
                 />

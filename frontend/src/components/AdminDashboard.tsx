@@ -1483,7 +1483,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                   type="file"
                   ref={quickUploadInputRef}
                   onChange={handleQuickUploadAndPost}
-                  accept="video/mp4,video/quicktime,video/webm"
+                  accept="video/*"
                   className="hidden"
                 />
 
@@ -1998,7 +1998,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     type="file"
                     ref={videoFileInputRef}
                     onChange={handleUploadVideoFile}
-                    accept="video/mp4,video/quicktime,video/webm"
+                    accept="video/*"
                     className="hidden"
                   />
 

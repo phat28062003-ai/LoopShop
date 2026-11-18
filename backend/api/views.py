@@ -10,7 +10,7 @@ from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message, Voucher
 from .serializers import (
     ProductSerializer,
     VideoSerializer,
@@ -19,7 +19,8 @@ from .serializers import (
     ReportSerializer,
     CommentSerializer,
     ConversationSerializer,
-    MessageSerializer
+    MessageSerializer,
+    VoucherSerializer
 )
 from .telegram import send_telegram_notification, get_telegram_config, save_telegram_config
 
@@ -164,17 +165,27 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         order = serializer.save()
+        # Nếu có mã giảm giá, tăng lượt sử dụng voucher
+        if order.voucher_code:
+            v = Voucher.objects.filter(code__iexact=order.voucher_code).first()
+            if v:
+                v.used_count += 1
+                v.save(update_fields=['used_count'])
+
         # Gửi thông báo Telegram tức thì cho Seller / Phát
         items_summary = "\n".join([
             f"  • {item.quantity}x {item.product_title} ({item.price:,.0f}đ)"
             for item in order.items.all()
         ])
+        voucher_line = f"🏷️ <b>Voucher:</b> <code>{order.voucher_code}</code> (-{order.discount_amount:,.0f} VND)\n" if order.voucher_code else ""
+        orig_line = f"💵 <b>Giá gốc:</b> <s>{order.original_amount:,.0f} VND</s>\n" if order.discount_amount > 0 else ""
         msg = (
             f"🛒 <b>ĐƠN HÀNG MỚI #{order.order_code}</b>\n\n"
             f"👤 <b>Khách hàng:</b> {order.customer_name}\n"
             f"📞 <b>SĐT:</b> <code>{order.customer_phone}</code>\n"
             f"📍 <b>Địa chỉ:</b> {order.shipping_address}\n"
-            f"💰 <b>Tổng tiền:</b> <b>{order.total_amount:,.0f} VND</b>\n"
+            f"{orig_line}{voucher_line}"
+            f"💰 <b>Tổng thanh toán:</b> <b>{order.total_amount:,.0f} VND</b>\n"
             f"📦 <b>Sản phẩm:</b>\n{items_summary or '  • 1x Đơn hàng LoopShop'}\n"
             f"💳 <b>Thanh toán:</b> Chuyển khoản VietQR\n\n"
             f"⚡ <i>LoopShop đang đợi người mua chuyển khoản...</i>"
@@ -253,6 +264,67 @@ class ReportViewSet(viewsets.ModelViewSet):
         report.status = 'dismissed'
         report.save(update_fields=['status'])
         return Response({'report_id': report.id, 'status': 'dismissed', 'message': 'Đã bỏ qua báo cáo'})
+
+
+class VoucherViewSet(viewsets.ModelViewSet):
+    """
+    API danh sách và quản lý mã giảm giá (Vouchers)
+    """
+    queryset = Voucher.objects.all().order_by('-created_at')
+    serializer_class = VoucherSerializer
+
+    def get_queryset(self):
+        qs = Voucher.objects.all().order_by('-created_at')
+        active_only = self.request.query_params.get('active', 'true').lower() == 'true'
+        if active_only:
+            qs = qs.filter(is_active=True)
+        return qs
+
+
+@api_view(['POST'])
+def apply_voucher_view(request):
+    """
+    API kiểm tra và áp dụng mã giảm giá theo giá trị đơn hàng
+    """
+    code = request.data.get('code', '').strip().upper()
+    order_amount = request.data.get('order_amount', 0)
+    try:
+        order_amount = int(float(order_amount))
+    except (ValueError, TypeError):
+        return Response({'valid': False, 'message': 'Giá trị đơn hàng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not code:
+        return Response({'valid': False, 'message': 'Vui lòng nhập mã giảm giá'}, status=status.HTTP_400_BAD_REQUEST)
+
+    voucher = Voucher.objects.filter(code__iexact=code, is_active=True).first()
+    if not voucher:
+        return Response({
+            'valid': False, 
+            'message': f'Mã ưu đãi "{code}" không tồn tại hoặc đã hết hạn.'
+        })
+
+    if order_amount < voucher.min_order_value:
+        return Response({
+            'valid': False,
+            'message': f'Đơn hàng tối thiểu phải từ {int(voucher.min_order_value):,}₫ để sử dụng mã này.'
+        })
+
+    discount = voucher.calculate_discount(order_amount)
+    final_amount = max(0, order_amount - discount)
+
+    return Response({
+        'valid': True,
+        'code': voucher.code,
+        'title': voucher.title,
+        'description': voucher.description,
+        'discount_type': voucher.discount_type,
+        'discount_value': voucher.discount_value,
+        'discount_amount': discount,
+        'formatted_discount': f"{discount:,.0f} VND",
+        'final_amount': final_amount,
+        'formatted_final': f"{final_amount:,.0f} VND",
+        'message': f'Áp dụng mã {voucher.code} thành công! Giảm ngay {discount:,.0f}₫'
+    })
 
 
 @api_view(['POST'])

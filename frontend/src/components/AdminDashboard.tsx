@@ -24,7 +24,8 @@ import {
   ChevronUp,
   Copy,
   Search,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order, CRMResponse } from '../types';
 import { api } from '../services/api';
@@ -179,6 +180,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const toggleExpandPhone = (phone: string) => {
     setExpandedPhone(prev => (prev === phone ? null : phone));
+  };
+
+  const handleExportOrdersCSV = () => {
+    if (orders.length === 0) {
+      alert('Chưa có đơn hàng nào để xuất!');
+      return;
+    }
+
+    const headers = ['Mã Đơn', 'Khách Hàng', 'Số Điện Thoại', 'Địa Chỉ Giao Hàng', 'Tổng Tiền (VNĐ)', 'Voucher', 'Tiền Giảm (VNĐ)', 'Trạng Thái', 'Đã Thanh Toán', 'Ngày Đặt'];
+    
+    const statusMap: Record<string, string> = {
+      pending: 'Chờ chuyển khoản',
+      confirmed: 'Đã thanh toán',
+      preparing: 'Đang đóng gói',
+      shipping: 'Đang giao hàng',
+      completed: 'Hoàn thành',
+      cancelled: 'Đã hủy',
+    };
+
+    const rows = orders.map((o) => {
+      const cleanField = (val: string | number | undefined) => {
+        const str = String(val ?? '').replace(/"/g, '""');
+        return `"${str}"`;
+      };
+      return [
+        cleanField(o.order_code),
+        cleanField(o.customer_name),
+        cleanField(o.customer_phone),
+        cleanField(o.shipping_address),
+        cleanField(o.total_amount),
+        cleanField(o.voucher_code || 'Không có'),
+        cleanField(o.discount_amount || 0),
+        cleanField(statusMap[o.status] || o.status),
+        cleanField(o.is_paid ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'),
+        cleanField(new Date(o.created_at).toLocaleString('vi-VN')),
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `LoopShop_DonHang_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleUpdateOrderStatus = async (orderId: number, newStatus: string) => {
+    try {
+      await api.updateOrderStatus(orderId, newStatus);
+      await loadAdminData();
+    } catch {
+      alert('Không thể cập nhật trạng thái đơn hàng!');
+    }
   };
 
   const filteredCustomers = (crmData?.customers || []).filter((c) => {
@@ -999,47 +1057,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-neutral-200">
-                Toàn bộ đơn hàng VietQR ({orders.length})
-              </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-800 gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-neutral-200">
+                  Toàn bộ đơn hàng VietQR ({orders.length})
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Theo dõi tiến độ thanh toán, cập nhật trạng thái vận đơn và xuất danh sách cho bên giao hàng
+                </p>
+              </div>
+
+              <button
+                onClick={handleExportOrdersCSV}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-md transition-all active:scale-95 cursor-pointer self-start sm:self-auto"
+                title="Tải file CSV mở bằng Excel chuẩn tiếng Việt"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Xuất Excel / CSV giao hàng</span>
+              </button>
             </div>
 
             <div className="space-y-2.5">
-              {orders.map((ord) => (
-                <div
-                  key={ord.id}
-                  className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs"
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono font-bold text-orange-400">{ord.order_code}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        ord.is_paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
-                      }`}>
-                        {ord.is_paid ? 'Đã nhận tiền' : 'Chờ khách quét QR'}
-                      </span>
-                    </div>
-                    <p className="text-neutral-300">
-                      Khách: {ord.customer_name} ({ord.customer_phone}) — {ord.shipping_address}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center space-x-3 self-end md:self-auto">
-                    <span className="font-extrabold text-white text-sm">
-                      {Number(ord.total_amount).toLocaleString('vi-VN')}₫
-                    </span>
-                    <a
-                      href={ord.vietqr_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-2.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium"
-                    >
-                      Xem VietQR
-                    </a>
-                  </div>
+              {orders.length === 0 ? (
+                <div className="text-center py-12 bg-neutral-900 rounded-2xl border border-neutral-800 text-neutral-500 text-xs">
+                  Chưa có đơn hàng nào
                 </div>
-              ))}
+              ) : (
+                orders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    className="bg-neutral-900 rounded-xl p-3.5 border border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-orange-400">{ord.order_code}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          ord.is_paid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'
+                        }`}>
+                          {ord.is_paid ? '✓ Đã nhận tiền' : '⏳ Chờ chuyển khoản'}
+                        </span>
+                        {ord.voucher_code && Number(ord.discount_amount) > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            Mã: {ord.voucher_code} (-{Number(ord.discount_amount).toLocaleString('vi-VN')}₫)
+                          </span>
+                        )}
+                        <span className="text-[11px] text-neutral-500">
+                          {new Date(ord.created_at).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+                      <p className="text-neutral-300">
+                        Khách: <strong className="text-white">{ord.customer_name}</strong> ({ord.customer_phone}) — {ord.shipping_address}
+                      </p>
+                      {ord.note && (
+                        <p className="text-neutral-400 italic text-[11px]">
+                          Ghi chú: {ord.note}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
+                      {/* Status selector */}
+                      <div className="flex items-center space-x-1.5">
+                        <span className="text-[11px] text-neutral-400">Tiến độ:</span>
+                        <select
+                          value={ord.status}
+                          onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value)}
+                          className="bg-neutral-950 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-rose-500 cursor-pointer"
+                        >
+                          <option value="pending">⏳ Chờ chuyển khoản</option>
+                          <option value="confirmed">💰 Đã thanh toán</option>
+                          <option value="preparing">📦 Đang đóng gói</option>
+                          <option value="shipping">🚚 Đang giao hàng</option>
+                          <option value="completed">✅ Hoàn thành</option>
+                          <option value="cancelled">❌ Đã hủy</option>
+                        </select>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-extrabold text-white text-sm">
+                          {Number(ord.total_amount).toLocaleString('vi-VN')}₫
+                        </div>
+                        {Number(ord.discount_amount) > 0 && ord.original_amount && (
+                          <div className="text-[10px] text-neutral-500 line-through">
+                            {Number(ord.original_amount).toLocaleString('vi-VN')}₫
+                          </div>
+                        )}
+                      </div>
+
+                      <a
+                        href={ord.vietqr_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium border border-neutral-700 transition-colors"
+                      >
+                        Xem VietQR
+                      </a>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

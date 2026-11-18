@@ -18,7 +18,7 @@ import type { VideoItem, Product, CartItem, Order } from './types';
 import { api } from './services/api';
 import { VideoPlayer } from './components/VideoPlayer';
 import { ProductDrawer } from './components/ProductDrawer';
-import { CartModal } from './components/CartModal';
+import { CartModal, type AppliedVoucherInfo } from './components/CartModal';
 import { VietQRCheckoutModal } from './components/VietQRCheckoutModal';
 import { ReportModal } from './components/ReportModal';
 import { CommentDrawer } from './components/CommentDrawer';
@@ -117,6 +117,7 @@ export const App: React.FC = () => {
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState<boolean>(false);
   const [isCartModalOpen, setIsCartModalOpen] = useState<boolean>(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState<boolean>(false);
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucherInfo | null>(null);
   const [reportVideo, setReportVideo] = useState<VideoItem | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   
@@ -628,6 +629,18 @@ export const App: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* Preload next video in background for instant 0ms playback on swipe */}
+                  {filteredVideos[currentVideoIndex + 1] && (
+                    <video
+                      key={`preload-${filteredVideos[currentVideoIndex + 1].id}`}
+                      src={filteredVideos[currentVideoIndex + 1].video_url}
+                      preload="auto"
+                      muted
+                      className="hidden"
+                      aria-hidden="true"
+                    />
+                  )}
+
                   {/* Floating Top Right Buttons on Feed: Search + Chat Center + Order Tracking + Cart */}
                   <div className="absolute top-4 right-14 z-30 flex items-center space-x-2">
                     <button
@@ -788,13 +801,19 @@ export const App: React.FC = () => {
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onProceedCheckout={() => setIsCheckoutModalOpen(true)}
+        appliedVoucher={appliedVoucher}
+        onApplyVoucher={setAppliedVoucher}
       />
 
       <VietQRCheckoutModal
         isOpen={isCheckoutModalOpen}
         cart={cart}
         onClose={() => setIsCheckoutModalOpen(false)}
-        onOrderSuccess={() => setCart([])}
+        onOrderSuccess={() => {
+          setCart([]);
+          setAppliedVoucher(null);
+        }}
+        appliedVoucher={appliedVoucher}
       />
 
       <ReportModal

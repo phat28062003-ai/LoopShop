@@ -12,7 +12,9 @@ from .views import (
     admin_dashboard_stats,
     admin_customers_crm,
     telegram_config_view,
-    test_telegram_notification_view
+    test_telegram_notification_view,
+    VoucherViewSet,
+    apply_voucher_view
 )
 
 router = DefaultRouter()
@@ -23,8 +25,10 @@ router.register(r'reports', ReportViewSet, basename='report')
 router.register(r'comments', CommentViewSet, basename='comment')
 router.register(r'conversations', ConversationViewSet, basename='conversation')
 router.register(r'messages', MessageViewSet, basename='message')
+router.register(r'vouchers', VoucherViewSet, basename='voucher')
 
 urlpatterns = [
+    path('vouchers/apply/', apply_voucher_view, name='voucher-apply'),
     path('payment/webhook/', vietqr_webhook, name='vietqr-webhook'),
     path('admin/stats/', admin_dashboard_stats, name='admin-stats'),
     path('admin/customers/', admin_customers_crm, name='admin-customers'),

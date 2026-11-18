@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, QrCode, CheckCircle2, Copy, Check, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { X, QrCode, CheckCircle2, Copy, Check, ShieldCheck, AlertCircle, Loader2, Ticket } from 'lucide-react';
 import type { CartItem, Order } from '../types';
+import type { AppliedVoucherInfo } from './CartModal';
 import { api } from '../services/api';
 
 interface VietQRCheckoutModalProps {
@@ -8,6 +9,7 @@ interface VietQRCheckoutModalProps {
   cart: CartItem[];
   onClose: () => void;
   onOrderSuccess: (order: Order) => void;
+  appliedVoucher?: AppliedVoucherInfo | null;
 }
 
 export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
@@ -15,6 +17,7 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
   cart,
   onClose,
   onOrderSuccess,
+  appliedVoucher = null,
 }) => {
   const [step, setStep] = useState<'info' | 'qr' | 'done'>('info');
   const [customerName, setCustomerName] = useState('');
@@ -36,6 +39,9 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
     0
   );
 
+  const discountAmount = appliedVoucher ? Math.min(appliedVoucher.discountAmount, totalAmount) : 0;
+  const finalAmount = Math.max(0, totalAmount - discountAmount);
+
   const handleSubmitInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName.trim() || !customerPhone.trim() || !shippingAddress.trim()) {
@@ -56,7 +62,10 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
         customer_name: customerName,
         customer_phone: customerPhone,
         shipping_address: shippingAddress,
-        total_amount: totalAmount,
+        total_amount: finalAmount,
+        original_amount: totalAmount,
+        discount_amount: discountAmount,
+        voucher_code: appliedVoucher?.code || '',
         items: itemsPayload,
         note: note,
       });
@@ -182,10 +191,25 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
                   <span>Số lượng sản phẩm:</span>
                   <span>{cart.reduce((c, i) => c + i.quantity, 0)} món</span>
                 </div>
-                <div className="flex justify-between font-bold text-neutral-200">
-                  <span>Tổng tiền thanh toán:</span>
+                {appliedVoucher && (
+                  <>
+                    <div className="flex justify-between text-neutral-400">
+                      <span>Tạm tính giá gốc:</span>
+                      <span>{totalAmount.toLocaleString('vi-VN')}₫</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-400 font-semibold items-center">
+                      <span className="flex items-center space-x-1">
+                        <Ticket className="w-3.5 h-3.5" />
+                        <span>Mã ưu đãi ({appliedVoucher.code}):</span>
+                      </span>
+                      <span>-{discountAmount.toLocaleString('vi-VN')}₫</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between font-bold text-neutral-200 pt-1 border-t border-neutral-700/60">
+                  <span>Số tiền chuyển khoản:</span>
                   <span className="text-sm font-extrabold text-orange-400">
-                    {totalAmount.toLocaleString('vi-VN')}₫
+                    {finalAmount.toLocaleString('vi-VN')}₫
                   </span>
                 </div>
               </div>
@@ -220,6 +244,13 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
                   className="w-56 h-auto object-contain mx-auto"
                 />
               </div>
+
+              {currentOrder.voucher_code && Number(currentOrder.discount_amount) > 0 && (
+                <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                  <Ticket className="w-3.5 h-3.5" />
+                  <span>Đã áp dụng mã {currentOrder.voucher_code} (Tiết kiệm {Number(currentOrder.discount_amount).toLocaleString('vi-VN')}₫)</span>
+                </div>
+              )}
 
               <div className="text-xs text-neutral-400">
                 Mở ứng dụng ngân hàng bất kỳ để quét mã và chuyển khoản

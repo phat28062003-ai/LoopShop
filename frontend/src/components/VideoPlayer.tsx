@@ -269,6 +269,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             Báo cáo
           </span>
         </button>
+
+        {/* TikTok Spinning Vinyl Disc */}
+        <div className="relative mt-1 flex flex-col items-center">
+          <div className={`w-10 h-10 rounded-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-black p-1 border border-neutral-700 shadow-xl flex items-center justify-center ${isPlaying ? 'animate-[spin_4s_linear_infinite]' : ''}`}>
+            <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-rose-500 via-amber-500 to-orange-500 flex items-center justify-center overflow-hidden">
+              <span className="text-[8px] text-white font-bold leading-none">♪</span>
+            </div>
+          </div>
+          {isPlaying && (
+            <div className="absolute -top-3.5 right-0 text-[10px] text-white/80 animate-bounce pointer-events-none">
+              🎵
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bottom Information & Shopee Video Product Overlay */}
@@ -288,8 +302,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 alt={taggedProduct.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-bold px-1 rounded-bl">
-                Hot
+              <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black px-1 rounded-bl shadow">
+                {taggedProduct.original_price && taggedProduct.original_price > taggedProduct.price 
+                  ? `-${Math.round(((Number(taggedProduct.original_price) - Number(taggedProduct.price)) / Number(taggedProduct.original_price)) * 100)}%`
+                  : 'HOT'}
               </div>
             </div>
 
@@ -309,6 +325,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     {Number(taggedProduct.original_price).toLocaleString('vi-VN')}₫
                   </span>
                 )}
+              </div>
+              <div className="flex items-center space-x-1.5 mt-0.5">
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-black font-extrabold">
+                  ⚡ DEAL HOT
+                </span>
+                <span className="text-[10px] text-amber-200 font-medium">Mã: PHATVIP -30k</span>
               </div>
             </div>
 

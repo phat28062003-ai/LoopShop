@@ -1,7 +1,7 @@
 {
-  "short_name": "VidCommerce",
-  "name": "VidCommerce - Video Ngắn & Mua Sắm VietQR",
-  "description": "Nền tảng video ngắn kết hợp thương mại điện tử cộng đồng khép kín, an toàn và hỗ trợ thanh toán VietQR",
+  "short_name": "LoopShop",
+  "name": "LoopShop - Video Ngắn & Mua Sắm VietQR (Phát Official)",
+  "description": "Nền tảng mua sắm qua video ngắn độc quyền từ Phát, hỗ trợ săn voucher và thanh toán tự động VietQR",
   "icons": [
     {
       "src": "/icon-192.png",

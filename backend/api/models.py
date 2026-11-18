@@ -63,6 +63,7 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Chờ chuyển khoản'),
         ('confirmed', 'Đã xác nhận & Thanh toán'),
+        ('preparing', 'Đang đóng gói hàng'),
         ('shipping', 'Đang vận chuyển'),
         ('completed', 'Đã hoàn thành'),
         ('cancelled', 'Đã hủy'),
@@ -73,6 +74,9 @@ class Order(models.Model):
     customer_phone = models.CharField(max_length=20)
     shipping_address = models.TextField()
     total_amount = models.DecimalField(max_digits=12, decimal_places=0)
+    original_amount = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    discount_amount = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    voucher_code = models.CharField(max_length=50, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     payment_method = models.CharField(max_length=20, default='vietqr')
     payment_code = models.CharField(max_length=32)
@@ -101,12 +105,53 @@ class Order(models.Model):
             self.order_code = f"PH-{uuid.uuid4().hex[:8].upper()}"
         if not self.payment_code:
             self.payment_code = self.order_code
+        if not self.original_amount:
+            self.original_amount = self.total_amount
         if not self.vietqr_url:
             self.vietqr_url = self.generate_vietqr_url()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Order {self.order_code} - {self.total_amount:,.0f} VND - {self.status}"
+
+
+class Voucher(models.Model):
+    DISCOUNT_TYPE_CHOICES = [
+        ('fixed', 'Số tiền cố định (VNĐ)'),
+        ('percent', 'Phần trăm (%)'),
+    ]
+
+    code = models.CharField(max_length=32, unique=True)
+    title = models.CharField(max_length=150)
+    description = models.CharField(max_length=255, blank=True)
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES, default='fixed')
+    discount_value = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    min_order_value = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    max_discount_value = models.DecimalField(max_digits=12, decimal_places=0, default=0, help_text="Áp dụng cho giảm theo %")
+    is_active = models.BooleanField(default=True)
+    used_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def calculate_discount(self, order_amount):
+        """
+        Tính số tiền giảm dựa trên giá trị đơn hàng
+        """
+        order_amount_int = int(order_amount)
+        min_order_int = int(self.min_order_value)
+        if order_amount_int < min_order_int:
+            return 0
+        if self.discount_type == 'fixed':
+            return min(int(self.discount_value), order_amount_int)
+        elif self.discount_type == 'percent':
+            raw = (order_amount_int * int(self.discount_value)) // 100
+            max_disc = int(self.max_discount_value)
+            if max_disc > 0:
+                raw = min(raw, max_disc)
+            return min(raw, order_amount_int)
+        return 0
+
+    def __str__(self):
+        return f"Voucher {self.code} - {self.title}"
 
 
 class OrderItem(models.Model):

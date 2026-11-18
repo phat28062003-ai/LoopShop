@@ -8,7 +8,8 @@ from api.models import (
     Report, 
     Comment, 
     Conversation, 
-    Message
+    Message,
+    Voucher
 )
 
 
@@ -19,6 +20,7 @@ class Command(BaseCommand):
         self.stdout.write('Đang khởi tạo toàn bộ dữ liệu mẫu phong phú...')
 
         # Xóa dữ liệu cũ nếu có
+        Voucher.objects.all().delete()
         Message.objects.all().delete()
         Conversation.objects.all().delete()
         Comment.objects.all().delete()
@@ -553,4 +555,48 @@ class Command(BaseCommand):
             status='pending'
         )
         self.stdout.write(self.style.SUCCESS('✓ Đã tạo 1 báo cáo vi phạm mẫu cho Admin.'))
+        # -------------------------------------------------------------
+        # 8. TẠO 4 MÃ VOUCHER KHUYẾN MÃI THỰC TẾ
+        # -------------------------------------------------------------
+        Voucher.objects.create(
+            code='PHATVIP',
+            title='Mã VIP Kênh TikTok Phát',
+            description='Giảm 30.000₫ cho đơn từ 200k khi xem từ kênh Phát',
+            discount_type='fixed',
+            discount_value=30000,
+            min_order_value=200000,
+            is_active=True,
+            used_count=18
+        )
+        Voucher.objects.create(
+            code='FREESHIP',
+            title='Miễn Phí Vận Chuyển',
+            description='Hỗ trợ 25.000₫ phí ship toàn quốc cho đơn từ 150k',
+            discount_type='fixed',
+            discount_value=25000,
+            min_order_value=150000,
+            is_active=True,
+            used_count=42
+        )
+        Voucher.objects.create(
+            code='TIKTOK50K',
+            title='Siêu Deal TikTok 50K',
+            description='Giảm sốc 50.000₫ cho đơn hàng từ 350k',
+            discount_type='fixed',
+            discount_value=50000,
+            min_order_value=350000,
+            is_active=True,
+            used_count=9
+        )
+        Voucher.objects.create(
+            code='CHAOBANMOI',
+            title='Chào Bạn Mới',
+            description='Giảm 20.000₫ cho khách hàng mới với đơn từ 100k',
+            discount_type='fixed',
+            discount_value=20000,
+            min_order_value=100000,
+            is_active=True,
+            used_count=65
+        )
+        self.stdout.write(self.style.SUCCESS('✓ Đã tạo 4 mã voucher khuyến mãi sẵn sàng cho khách áp dụng.'))
         self.stdout.write(self.style.SUCCESS('🎉 Hoàn tất toàn bộ nạp dữ liệu mẫu LoopShop!'))

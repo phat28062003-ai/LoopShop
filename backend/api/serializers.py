@@ -1,5 +1,15 @@
 from rest_framework import serializers
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Comment, Conversation, Message, Voucher
+
+
+class VoucherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Voucher
+        fields = [
+            'id', 'code', 'title', 'description', 'discount_type',
+            'discount_value', 'min_order_value', 'max_discount_value',
+            'is_active', 'used_count'
+        ]
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -62,7 +72,8 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_code', 'customer_name', 'customer_phone',
-            'shipping_address', 'total_amount', 'status', 'payment_method',
+            'shipping_address', 'total_amount', 'original_amount', 'discount_amount',
+            'voucher_code', 'status', 'payment_method',
             'payment_code', 'is_paid', 'bank_id', 'account_no', 'account_name',
             'vietqr_url', 'note', 'created_at', 'items'
         ]
@@ -92,7 +103,8 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_code', 'customer_name', 'customer_phone',
-            'shipping_address', 'total_amount', 'status', 'payment_method',
+            'shipping_address', 'total_amount', 'original_amount', 'discount_amount',
+            'voucher_code', 'status', 'payment_method',
             'payment_code', 'is_paid', 'bank_id', 'account_no', 'account_name',
             'vietqr_url', 'note', 'created_at', 'updated_at', 'items'
         ]

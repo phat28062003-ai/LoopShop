@@ -60,7 +60,10 @@ export interface Order {
   customer_phone: string;
   shipping_address: string;
   total_amount: number;
-  status: 'pending' | 'confirmed' | 'shipping' | 'completed' | 'cancelled';
+  original_amount?: number;
+  discount_amount?: number;
+  voucher_code?: string;
+  status: 'pending' | 'confirmed' | 'preparing' | 'shipping' | 'completed' | 'cancelled';
   payment_method: string;
   payment_code: string;
   is_paid: boolean;
@@ -72,6 +75,33 @@ export interface Order {
   created_at: string;
   updated_at: string;
   items: OrderItem[];
+}
+
+export interface Voucher {
+  id: number;
+  code: string;
+  title: string;
+  description: string;
+  discount_type: 'fixed' | 'percent';
+  discount_value: number;
+  min_order_value: number;
+  max_discount_value?: number;
+  is_active: boolean;
+  used_count: number;
+}
+
+export interface ApplyVoucherResponse {
+  valid: boolean;
+  code?: string;
+  title?: string;
+  description?: string;
+  discount_type?: 'fixed' | 'percent';
+  discount_value?: number;
+  discount_amount: number;
+  formatted_discount?: string;
+  final_amount: number;
+  formatted_final?: string;
+  message: string;
 }
 
 export interface Report {

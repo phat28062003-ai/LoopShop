@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, Video, VideoProductTag, Order, OrderItem, Report
+from .models import Product, Video, VideoProductTag, Order, OrderItem, Report, Voucher
 
 
 class VideoProductTagInline(admin.TabularInline):
@@ -40,3 +40,10 @@ class OrderAdmin(admin.ModelAdmin):
 class ReportAdmin(admin.ModelAdmin):
     list_display = ('id', 'video', 'reason', 'status', 'created_at')
     list_filter = ('status', 'reason')
+
+
+@admin.register(Voucher)
+class VoucherAdmin(admin.ModelAdmin):
+    list_display = ('code', 'title', 'discount_type', 'discount_value', 'min_order_value', 'is_active', 'used_count')
+    list_filter = ('is_active', 'discount_type')
+    search_fields = ('code', 'title')

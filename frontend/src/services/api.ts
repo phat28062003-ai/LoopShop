@@ -1,4 +1,4 @@
-import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message, CRMResponse } from '../types';
+import type { VideoItem, Product, Order, Report, AdminStats, Comment, Conversation, Message, CRMResponse, Voucher, ApplyVoucherResponse } from '../types';
 
 const getApiBase = () => {
   const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
@@ -139,12 +139,32 @@ export const api = {
     return res.json();
   },
 
+  // Voucher endpoints
+  async getVouchers(): Promise<Voucher[]> {
+    const res = await fetch(`${API_BASE}/vouchers/?active=true`);
+    if (!res.ok) throw new Error('Không thể tải danh sách voucher');
+    return res.json();
+  },
+
+  async applyVoucher(code: string, orderAmount: number): Promise<ApplyVoucherResponse> {
+    const res = await fetch(`${API_BASE}/vouchers/apply/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, order_amount: orderAmount }),
+    });
+    if (!res.ok) throw new Error('Không thể áp dụng mã giảm giá');
+    return res.json();
+  },
+
   // Order endpoints
   async createOrder(data: {
     customer_name: string;
     customer_phone: string;
     shipping_address: string;
     total_amount: number;
+    original_amount?: number;
+    discount_amount?: number;
+    voucher_code?: string;
     items: { product_id: number; product_title: string; price: number; quantity: number }[];
     note?: string;
   }): Promise<Order> {

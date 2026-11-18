@@ -16,6 +16,32 @@ const getApiBase = () => {
 
 const API_BASE = getApiBase();
 
+/**
+ * Phân giải đường dẫn video an toàn:
+ * - Link nội bộ /videos/... giữ nguyên
+ * - Link /media/... tự động gắn domain Render nếu chạy ở production
+ * - Link http://loopshop.onrender.com tự động nâng cấp https://
+ * - Link blob: hoặc data: xem trước tức thì giữ nguyên
+ */
+export const resolveMediaUrl = (url?: string): string => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.includes('mixkit.co')) {
+    return '/videos/v1.mp4';
+  }
+  if (trimmed.startsWith('/media/')) {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      return trimmed;
+    }
+    return `https://loopshop.onrender.com${trimmed}`;
+  }
+  if (trimmed.startsWith('http://loopshop.onrender.com')) {
+    return trimmed.replace('http://', 'https://');
+  }
+  return trimmed;
+};
+
 export const api = {
   // Video endpoints
   async getVideos(params?: { isAdmin?: boolean; category?: string; search?: string } | boolean): Promise<VideoItem[]> {
@@ -105,7 +131,7 @@ export const api = {
     return res.json();
   },
 
-  async uploadVideoFile(file: File): Promise<{ video_url: string; relative_url: string; message: string; filename?: string; size?: number }> {
+  async uploadVideoFile(file: File): Promise<{ video_url: string; relative_url: string; full_url?: string; message: string; filename?: string; size?: number }> {
     const formData = new FormData();
     formData.append('video', file);
     const res = await fetch(`${API_BASE}/videos/upload_file/`, {
@@ -124,7 +150,12 @@ export const api = {
       }
       throw new Error(errMsg);
     }
-    return res.json();
+    const data = await res.json();
+    const finalUrl = data.full_url || resolveMediaUrl(data.video_url || data.relative_url);
+    return {
+      ...data,
+      video_url: finalUrl,
+    };
   },
 
   // Comment endpoints

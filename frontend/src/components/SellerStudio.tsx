@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2, Video, FileVideo } from 'lucide-react';
+import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2, Video, FileVideo, AlertTriangle } from 'lucide-react';
 import type { Product, Order } from '../types';
-import { api } from '../services/api';
+import { api, resolveMediaUrl } from '../services/api';
 
 export const SellerStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'orders'>('upload');
@@ -14,6 +14,8 @@ export const SellerStudio: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [uploaderName, setUploaderName] = useState('phat_seller');
   const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
@@ -64,6 +66,19 @@ export const SellerStudio: React.FC = () => {
     // Reset input
     e.target.value = '';
 
+    // Kiểm tra nếu người dùng chọn nhầm file HTML / Trang web
+    if (file.type === 'text/html' || file.name.endsWith('.html') || file.name.endsWith('.htm') || file.name.endsWith('.mhtml')) {
+      alert('Tệp tin này là trang web (HTML) chứ không phải file video MP4/WebM! Nếu bạn lấy kịch bản từ AI (như Dola), hãy xuất file video thực tế hoặc chọn mẫu video có sẵn bên dưới.');
+      return;
+    }
+
+    // Xem trước tức thì 0ms qua blob
+    try {
+      const localBlob = URL.createObjectURL(file);
+      setPreviewUrl(localBlob);
+      setPreviewError(null);
+    } catch {}
+
     // Tự động trích xuất tiêu đề sạch từ tên file
     const cleanTitle = file.name
       .replace(/\.[^/.]+$/, '')
@@ -77,7 +92,7 @@ export const SellerStudio: React.FC = () => {
     try {
       setIsUploadingFile(true);
       const res = await api.uploadVideoFile(file);
-      const targetUrl = res.relative_url || res.video_url;
+      const targetUrl = res.video_url || res.full_url || resolveMediaUrl(res.relative_url);
       setVideoUrl(targetUrl);
 
       // NẾU BẬT CHẾ ĐỘ "UP FILE LÀ LÊN LUÔN" (AUTO PUBLISH)
@@ -103,6 +118,7 @@ export const SellerStudio: React.FC = () => {
         setTitle('');
         setDescription('');
         setVideoUrl('');
+        setPreviewUrl('');
         setUploadedFileName(null);
         setTimeout(() => setUploadSuccess(null), 8000);
       }
@@ -337,7 +353,11 @@ export const SellerStudio: React.FC = () => {
                       type="text"
                       placeholder="Dán link video MP4 (ví dụ: https://... hoặc /videos/v1.mp4)"
                       value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
+                      onChange={(e) => {
+                        setVideoUrl(e.target.value);
+                        setPreviewUrl(e.target.value);
+                        setPreviewError(null);
+                      }}
                       className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 font-mono"
                     />
                     <div className="flex flex-wrap gap-1.5 items-center">
@@ -348,6 +368,8 @@ export const SellerStudio: React.FC = () => {
                           key={idx}
                           onClick={() => {
                             setVideoUrl(sample.url);
+                            setPreviewUrl(sample.url);
+                            setPreviewError(null);
                             setUploadedFileName(null);
                           }}
                           className="text-[10px] bg-neutral-800 hover:bg-neutral-700 px-2 py-0.5 rounded text-orange-400 border border-neutral-700 transition-colors"
@@ -391,14 +413,35 @@ export const SellerStudio: React.FC = () => {
               </div>
 
               {/* Video Preview if URL exists */}
-              {videoUrl && (
+              {(previewUrl || videoUrl) && (
                 <div className="p-3 bg-neutral-800/60 rounded-xl border border-neutral-700/60 space-y-2">
-                  <span className="text-xs font-semibold text-neutral-300 flex items-center space-x-1.5">
-                    <Video className="w-3.5 h-3.5 text-orange-400" />
-                    <span>Xem trước video:</span>
-                  </span>
-                  <div className="w-32 h-44 rounded-lg overflow-hidden bg-black mx-auto">
-                    <video src={videoUrl} className="w-full h-full object-cover" controls playsInline />
+                  <div className="flex items-center justify-between text-xs font-semibold text-neutral-300">
+                    <span className="flex items-center space-x-1.5">
+                      <Video className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Xem trước video:</span>
+                    </span>
+                    {previewError ? (
+                      <span className="text-[11px] text-rose-400 font-normal flex items-center space-x-1">
+                        <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                        <span>{previewError}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-emerald-400 font-normal flex items-center space-x-1">
+                        <Check className="w-3 h-3 flex-shrink-0" />
+                        <span>Video sẵn sàng</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-32 h-44 rounded-lg overflow-hidden bg-black mx-auto relative border border-neutral-700">
+                    <video
+                      key={previewUrl || videoUrl}
+                      src={previewUrl || resolveMediaUrl(videoUrl)}
+                      className="w-full h-full object-cover"
+                      controls
+                      playsInline
+                      onLoadedData={() => setPreviewError(null)}
+                      onError={() => setPreviewError('Không thể phát video (file lỗi hoặc định dạng không hỗ trợ)')}
+                    />
                   </div>
                 </div>
               )}

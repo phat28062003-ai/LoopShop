@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Heart, MessageCircle, Share2, ShieldAlert, Volume2, VolumeX, ShoppingBag, Tag, MessageSquare } from 'lucide-react';
 import type { VideoItem, Product } from '../types';
+import { resolveMediaUrl } from '../services/api';
 
 interface VideoPlayerProps {
   video: VideoItem;
@@ -41,7 +42,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const idx = ((video.id - 1) % 8) + 1;
       return `/videos/v${idx}.mp4`;
     }
-    return url;
+    return resolveMediaUrl(url);
   };
 
   const [currentSrc, setCurrentSrc] = useState<string>(() => resolveVideoUrl(video.video_url));

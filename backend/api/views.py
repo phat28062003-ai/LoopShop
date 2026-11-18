@@ -136,6 +136,28 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         if not video_file:
             return Response({'error': 'Vui lòng chọn file video hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Kiểm tra nội dung file thực tế (tránh trường hợp lưu trang web HTML/văn bản rồi đổi đuôi sang .mp4)
+        try:
+            head_bytes = video_file.read(512)
+            video_file.seek(0)
+            head_lower = head_bytes.lower()
+            if (
+                b'<!doctype html' in head_lower
+                or b'<html' in head_lower
+                or b'<head' in head_lower
+                or b'<body' in head_lower
+                or b'<!doctype' in head_lower
+                or b'<meta' in head_lower
+            ):
+                return Response({
+                    'error': (
+                        f'Tệp tin "{video_file.name}" thực chất là trang web (HTML) hoặc kịch bản văn bản, không phải là video! '
+                        'Vui lòng tải đúng file video MP4/WebM từ máy, hoặc dùng mẫu video có sẵn bên dưới.'
+                    )
+                }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as check_err:
+            print(f"Error checking file header: {check_err}")
+
         # Đảm bảo thư mục media/videos tồn tại
         media_videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
         os.makedirs(media_videos_dir, exist_ok=True)
@@ -148,8 +170,11 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
 
         # Trả về cả relative URL (cho frontend chạy qua proxy) và full URL
         full_url = request.build_absolute_uri(file_url)
+        if 'onrender.com' in request.get_host() and full_url.startswith('http://'):
+            full_url = full_url.replace('http://', 'https://', 1)
+
         return Response({
-            'video_url': file_url,
+            'video_url': full_url,
             'relative_url': file_url,
             'full_url': full_url,
             'filename': video_file.name,

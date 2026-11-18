@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react';
 import type { VideoItem, Product, CartItem, Order } from './types';
-import { api } from './services/api';
+import { api, resolveMediaUrl } from './services/api';
 import { VideoPlayer } from './components/VideoPlayer';
 import { ProductDrawer } from './components/ProductDrawer';
 import { CartModal, type AppliedVoucherInfo } from './components/CartModal';
@@ -687,7 +687,7 @@ export const App: React.FC = () => {
                   {filteredVideos[currentVideoIndex + 1] && (
                     <video
                       key={`preload-${filteredVideos[currentVideoIndex + 1].id}`}
-                      src={filteredVideos[currentVideoIndex + 1].video_url}
+                      src={resolveMediaUrl(filteredVideos[currentVideoIndex + 1].video_url)}
                       preload="auto"
                       muted
                       className="hidden"

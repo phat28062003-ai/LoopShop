@@ -37,7 +37,7 @@ import {
   Loader2
 } from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order, CRMResponse, Product } from '../types';
-import { api } from '../services/api';
+import { api, resolveMediaUrl } from '../services/api';
 
 interface AdminDashboardProps {
   onLogout?: () => void;
@@ -83,6 +83,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [formDescription, setFormDescription] = useState('');
   const [formCategory, setFormCategory] = useState('tech');
   const [formVideoUrl, setFormVideoUrl] = useState('');
+  const [formPreviewUrl, setFormPreviewUrl] = useState('');
+  const [videoPreviewError, setVideoPreviewError] = useState<string | null>(null);
   const [formThumbnailUrl, setFormThumbnailUrl] = useState('');
   const [formUploaderName, setFormUploaderName] = useState('phat_official');
   const [formSelectedProductId, setFormSelectedProductId] = useState<number | ''>('');
@@ -252,6 +254,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setFormDescription('');
     setFormCategory('tech');
     setFormVideoUrl('/videos/v1.mp4');
+    setFormPreviewUrl('/videos/v1.mp4');
+    setVideoPreviewError(null);
     setFormThumbnailUrl('');
     setFormUploaderName('phat_official');
     setFormSelectedProductId(products.length > 0 ? products[0].id : '');
@@ -268,6 +272,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setFormDescription(v.description || '');
     setFormCategory(v.category || 'tech');
     setFormVideoUrl(v.video_url);
+    setFormPreviewUrl(resolveMediaUrl(v.video_url));
+    setVideoPreviewError(null);
     setFormThumbnailUrl(v.thumbnail_url || '');
     setFormUploaderName(v.uploader_name || 'phat_official');
     if (v.products && v.products.length > 0) {
@@ -288,6 +294,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
     // Reset input để có thể chọn lại cùng một file nếu cần
     e.target.value = '';
+
+    // Kiểm tra nếu người dùng chọn nhầm file HTML / Trang web
+    if (file.type === 'text/html' || file.name.endsWith('.html') || file.name.endsWith('.htm') || file.name.endsWith('.mhtml')) {
+      setModalUploadStatus({
+        status: 'error',
+        filename: file.name,
+        message: 'Tệp tin này là trang web (HTML) chứ không phải file video MP4/WebM! Nếu bạn lấy kịch bản từ AI (như Dola), hãy xuất file video thực tế hoặc chọn mẫu video có sẵn bên dưới.',
+      });
+      return;
+    }
+
+    // Xem trước tức thì 0ms bằng URL.createObjectURL
+    try {
+      const localBlob = URL.createObjectURL(file);
+      setFormPreviewUrl(localBlob);
+      setVideoPreviewError(null);
+    } catch {
+      // fallback
+    }
 
     const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
     setModalUploadStatus({
@@ -311,7 +336,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     try {
       setIsUploadingVideoFile(true);
       const res = await api.uploadVideoFile(file);
-      const targetUrl = res.relative_url || res.video_url;
+      const targetUrl = res.video_url || res.full_url || resolveMediaUrl(res.relative_url);
       setFormVideoUrl(targetUrl);
       setModalUploadStatus({
         status: 'success',
@@ -330,7 +355,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         message: errMsg,
       });
       setVideoToastMessage({ type: 'error', text: errMsg });
-      setTimeout(() => setVideoToastMessage(null), 5000);
+      setTimeout(() => setVideoToastMessage(null), 7000);
     } finally {
       setIsUploadingVideoFile(false);
     }
@@ -418,6 +443,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     if (!file) return;
     e.target.value = '';
 
+    // Kiểm tra nếu chọn nhầm file HTML / Trang web
+    if (file.type === 'text/html' || file.name.endsWith('.html') || file.name.endsWith('.htm') || file.name.endsWith('.mhtml')) {
+      setVideoToastMessage({
+        type: 'error',
+        text: `Tệp "${file.name}" là trang web HTML chứ không phải video MP4/WebM! Vui lòng chọn file video thực tế.`
+      });
+      setTimeout(() => setVideoToastMessage(null), 8000);
+      return;
+    }
+
     const cleanTitle = file.name
       .replace(/\.[^/.]+$/, '')
       .replace(/[_-]+/g, ' ')
@@ -433,7 +468,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
       // 1. Tải file video lên server
       const uploadRes = await api.uploadVideoFile(file);
-      const videoPath = uploadRes.relative_url || uploadRes.video_url;
+      const videoPath = uploadRes.video_url || uploadRes.full_url || resolveMediaUrl(uploadRes.relative_url);
 
       // 2. Gắn sản phẩm mặc định đầu tiên nếu có
       const defaultProd = products.length > 0 ? products[0] : null;
@@ -465,7 +500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         type: 'error',
         text: err?.message || 'Tải video lên thất bại, vui lòng thử lại!'
       });
-      setTimeout(() => setVideoToastMessage(null), 6000);
+      setTimeout(() => setVideoToastMessage(null), 7000);
     } finally {
       setIsQuickUploading(false);
     }
@@ -1683,11 +1718,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                           {/* 9:16 Video Thumbnail */}
                           <div className="w-24 h-36 rounded-xl overflow-hidden bg-black flex-shrink-0 relative border border-neutral-800">
                             <video
-                              src={v.video_url}
+                              src={resolveMediaUrl(v.video_url)}
                               className="w-full h-full object-cover"
                               muted
                               playsInline
                               preload="metadata"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                const fallback = `/videos/v${((v.id - 1) % 8) + 1}.mp4`;
+                                if (!target.src.endsWith(fallback)) {
+                                  target.src = fallback;
+                                }
+                              }}
                             />
                             {v.is_hidden && (
                               <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center p-1 text-center">
@@ -2097,7 +2139,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     type="text"
                     placeholder="Hoặc dán URL video (ví dụ: /videos/v1.mp4 hoặc https://...)"
                     value={formVideoUrl}
-                    onChange={(e) => setFormVideoUrl(e.target.value)}
+                    onChange={(e) => {
+                      setFormVideoUrl(e.target.value);
+                      setFormPreviewUrl(e.target.value);
+                      setVideoPreviewError(null);
+                    }}
                     className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono text-[11px] placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
                     required
                   />
@@ -2111,7 +2157,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                       <button
                         key={idx}
                         type="button"
-                        onClick={() => setFormVideoUrl(s.url)}
+                        onClick={() => {
+                          setFormVideoUrl(s.url);
+                          setFormPreviewUrl(s.url);
+                          setVideoPreviewError(null);
+                        }}
                         className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all ${
                           formVideoUrl === s.url
                             ? 'bg-rose-600 text-white font-bold'
@@ -2125,25 +2175,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </div>
 
                 {/* Mini Preview */}
-                {formVideoUrl && (
+                {(formPreviewUrl || formVideoUrl) && (
                   <div className="flex items-center space-x-3 pt-2 border-t border-neutral-800/80">
                     <div className="w-16 h-24 rounded-lg overflow-hidden bg-black flex-shrink-0 relative border border-neutral-700">
                       <video
-                        src={formVideoUrl}
+                        key={formPreviewUrl || formVideoUrl}
+                        src={formPreviewUrl || resolveMediaUrl(formVideoUrl)}
                         className="w-full h-full object-cover"
                         autoPlay
                         loop
                         muted
                         playsInline
+                        onLoadedData={() => setVideoPreviewError(null)}
+                        onError={() => {
+                          setVideoPreviewError('⚠️ Không thể phát! Tệp có thể là văn bản/HTML bị đổi đuôi hoặc video bị hỏng.');
+                        }}
                       />
                     </div>
-                    <div className="text-[11px] text-neutral-400 space-y-0.5">
-                      <p className="text-emerald-400 font-semibold flex items-center space-x-1">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Video hoạt động tốt</span>
-                      </p>
+                    <div className="text-[11px] text-neutral-400 space-y-0.5 flex-1 min-w-0">
+                      {videoPreviewError ? (
+                        <p className="text-rose-400 font-semibold flex items-center space-x-1">
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="leading-tight">{videoPreviewError}</span>
+                        </p>
+                      ) : (
+                        <p className="text-emerald-400 font-semibold flex items-center space-x-1">
+                          <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Video sẵn sàng phát tốt</span>
+                        </p>
+                      )}
                       <p className="font-mono text-[10px] truncate max-w-xs text-neutral-500">
-                        {formVideoUrl}
+                        {formVideoUrl || formPreviewUrl}
                       </p>
                     </div>
                   </div>
@@ -2281,7 +2343,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
             <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 flex space-x-3 items-center">
               <div className="w-14 h-20 rounded-xl overflow-hidden bg-black flex-shrink-0">
-                <video src={deletingVideo.video_url} className="w-full h-full object-cover" muted />
+                <video src={resolveMediaUrl(deletingVideo.video_url)} className="w-full h-full object-cover" muted />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-neutral-400">#{deletingVideo.id} • @{deletingVideo.uploader_name}</p>

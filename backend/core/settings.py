@@ -110,6 +110,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 250 * 1024 * 1024  # 250 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 250 * 1024 * 1024  # 250 MB
 
+# Trust proxy SSL header on Render / reverse proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings - Allow all origins for seamless frontend communication

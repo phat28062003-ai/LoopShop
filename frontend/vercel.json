@@ -5,6 +5,10 @@
       "destination": "https://loopshop.onrender.com/api/:path*"
     },
     {
+      "source": "/media/:path*",
+      "destination": "https://loopshop.onrender.com/media/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

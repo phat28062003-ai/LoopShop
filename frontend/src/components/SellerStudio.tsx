@@ -1,14 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2, Video, FileVideo, AlertTriangle } from 'lucide-react';
+import { Upload, Plus, Package, CheckCircle2, Check, RefreshCw, Loader2, Video, FileVideo, AlertTriangle, ShoppingBag, Trash2 } from 'lucide-react';
 import type { Product, Order } from '../types';
 import { api, resolveMediaUrl } from '../services/api';
 
 export const SellerStudio: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'orders'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'products' | 'orders'>('upload');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // New Product Form state in SellerStudio
+  const [isAddingProd, setIsAddingProd] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newPrice, setNewPrice] = useState<number>(189000);
+  const [newOriginalPrice, setNewOriginalPrice] = useState<number | ''>(250000);
+  const [newCategory, setNewCategory] = useState('tech');
+  const [newStock, setNewStock] = useState<number>(100);
+  const [newImage, setNewImage] = useState('https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600');
+  const [newDesc, setNewDesc] = useState('');
+  const [isSavingProd, setIsSavingProd] = useState(false);
 
   // Upload Form state
   const [title, setTitle] = useState('');
@@ -171,6 +182,56 @@ export const SellerStudio: React.FC = () => {
     }
   };
 
+  const handleCreateProductInStudio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) {
+      alert('Vui lòng nhập tên sản phẩm!');
+      return;
+    }
+    if (!newPrice || newPrice <= 0) {
+      alert('Vui lòng nhập giá hợp lệ!');
+      return;
+    }
+
+    try {
+      setIsSavingProd(true);
+      const created = await api.createProduct({
+        title: newTitle.trim(),
+        description: newDesc.trim(),
+        category: newCategory,
+        price: newPrice,
+        original_price: newOriginalPrice ? Number(newOriginalPrice) : undefined,
+        stock: Number(newStock) || 0,
+        seller_name: 'Phát Official Store',
+        image_url: newImage.trim() || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600',
+        is_active: true,
+      });
+
+      await loadData();
+      setSelectedProductId(created.id);
+      setIsAddingProd(false);
+      setNewTitle('');
+      setNewDesc('');
+      alert(`🎉 Đã thêm sản phẩm "${created.title}" thành công!`);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Không thể tạo sản phẩm mới!');
+    } finally {
+      setIsSavingProd(false);
+    }
+  };
+
+  const handleDeleteProductInStudio = async (id: number, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}"?`)) return;
+    try {
+      await api.deleteProduct(id);
+      await loadData();
+    } catch (err: any) {
+      console.error(err);
+      alert('Không thể xóa sản phẩm!');
+    }
+  };
+
   const handleConfirmPayment = async (orderId: number) => {
     try {
       await api.confirmOrderPayment(orderId);
@@ -229,6 +290,18 @@ export const SellerStudio: React.FC = () => {
         >
           <Upload className="w-4 h-4" />
           <span>Đăng tải Video & Gắn thẻ SP</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex-1 py-2.5 text-xs font-semibold rounded-lg flex items-center justify-center space-x-2 transition-all ${
+            activeTab === 'products'
+              ? 'bg-orange-500 text-black shadow-lg font-bold'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Sản phẩm của Shop ({products.length})</span>
         </button>
 
         <button
@@ -496,6 +569,217 @@ export const SellerStudio: React.FC = () => {
                 )}
               </button>
             </form>
+          </div>
+        )}
+
+        {activeTab === 'products' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <div>
+                <h2 className="text-sm font-bold text-neutral-200 flex items-center space-x-2">
+                  <ShoppingBag className="w-4 h-4 text-orange-400" />
+                  <span>Sản phẩm của Shop ({products.length})</span>
+                </h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Thêm mới sản phẩm để gắn vào video hoặc hiển thị cho khách mua sắm
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddingProd(!isAddingProd)}
+                className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-black text-xs font-bold flex items-center space-x-1.5 shadow transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isAddingProd ? 'Đóng form' : '+ Thêm sản phẩm mới'}</span>
+              </button>
+            </div>
+
+            {/* Quick Add Product Card in Studio */}
+            {isAddingProd && (
+              <form onSubmit={handleCreateProductInStudio} className="p-4 bg-neutral-900 rounded-2xl border border-orange-500/40 space-y-3 animate-in fade-in duration-200">
+                <h3 className="text-xs font-bold text-orange-400 flex items-center space-x-1.5">
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nhập thông tin sản phẩm mới</span>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Tên sản phẩm *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ví dụ: Áo hoodie nỉ bông form rộng..."
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Danh mục
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                    >
+                      <option value="tech">⚡ Công nghệ</option>
+                      <option value="fashion">👕 Thời trang</option>
+                      <option value="lifestyle">🏠 Đời sống</option>
+                      <option value="food">🍔 Ẩm thực</option>
+                      <option value="beauty">💄 Làm đẹp</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Giá bán (VND) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1000}
+                      step={1000}
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(Number(e.target.value))}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Giá gốc (gạch ngang)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      placeholder="Không bắt buộc"
+                      value={newOriginalPrice}
+                      onChange={(e) => setNewOriginalPrice(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                      Số lượng kho
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newStock}
+                      onChange={(e) => setNewStock(Number(e.target.value))}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                    Link ảnh sản phẩm
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="https://images.unsplash.com/..."
+                    value={newImage}
+                    onChange={(e) => setNewImage(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
+                    Mô tả ngắn
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Mô tả công năng, ưu điểm sản phẩm..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingProd(false)}
+                    className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingProd}
+                    className="px-4 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-black text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isSavingProd ? 'Đang tạo...' : 'Lưu sản phẩm ngay'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Product List Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {products.map((p) => (
+                <div
+                  key={p.id}
+                  className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col justify-between space-y-2"
+                >
+                  <div className="space-y-2">
+                    <div className="w-full h-36 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800 relative">
+                      <img
+                        src={p.image_url}
+                        alt={p.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600';
+                        }}
+                      />
+                      <span className="absolute top-2 right-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] text-white font-mono">
+                        Kho: {p.stock}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-white line-clamp-2">{p.title}</h4>
+                      <p className="text-xs font-bold text-orange-400 font-mono mt-1">
+                        {Number(p.price).toLocaleString('vi-VN')}₫
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProductId(p.id);
+                        setActiveTab('upload');
+                      }}
+                      className="text-[11px] text-orange-400 hover:underline font-semibold"
+                    >
+                      ⚡ Gắn vào video mới
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProductInStudio(p.id, p.title)}
+                      className="p-1.5 text-neutral-500 hover:text-rose-400 rounded-lg hover:bg-neutral-800 transition-colors"
+                      title="Xóa sản phẩm"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

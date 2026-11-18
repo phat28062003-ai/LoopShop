@@ -138,7 +138,137 @@ class Command(BaseCommand):
             sold_count=780,
         )
 
-        self.stdout.write(self.style.SUCCESS('✓ Đã tạo 8 sản phẩm mẫu đầy đủ 5 danh mục.'))
+        p9 = Product.objects.create(
+            seller_name='Phát Smart Devices',
+            title='Đồng hồ thông minh Smartwatch AMOLED chống nước 5ATM',
+            description='Màn hình tràn viền AMOLED 1.43 inch sắc nét, đo nhịp tim & SpO2 liên tục, theo dõi 100+ bài tập, pin 14 ngày.',
+            category='tech',
+            price=690000,
+            original_price=990000,
+            image_url='https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
+            stock=65,
+            rating=4.9,
+            sold_count=340,
+        )
+
+        p10 = Product.objects.create(
+            seller_name='Streetwear by Phát',
+            title='Kính râm phi công chống tia UV400 phân cực polarized',
+            description='Gọng titan siêu nhẹ mạ tĩnh điện chống gỉ, tròng kính phân cực chống lóa khi lái xe và đi biển, bảo vệ mắt 100%.',
+            category='fashion',
+            price=179000,
+            original_price=290000,
+            image_url='https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=600&auto=format&fit=crop&q=80',
+            stock=110,
+            rating=4.8,
+            sold_count=420,
+        )
+
+        p11 = Product.objects.create(
+            seller_name='Streetwear by Phát',
+            title='Giày Sneaker Unisex đế êm Air Cushion chống trượt',
+            description='Đế cao su lưu hóa đệm khí siêu êm, thân giày vải dệt thoáng khí không hôi chân, phối màu năng động phong cách.',
+            category='fashion',
+            price=349000,
+            original_price=550000,
+            image_url='https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
+            stock=90,
+            rating=4.9,
+            sold_count=580,
+        )
+
+        p12 = Product.objects.create(
+            seller_name='Phát Audio Official',
+            title='Loa Bluetooth di động Mini Bass trầm công suất 15W',
+            description='Âm thanh 360 độ sống động, màng loa thụ động kép cho âm trầm uy lực, chống nước IPX7 thoải mái mang đi du lịch.',
+            category='tech',
+            price=279000,
+            original_price=420000,
+            image_url='https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&auto=format&fit=crop&q=80',
+            stock=75,
+            rating=4.8,
+            sold_count=310,
+        )
+
+        p13 = Product.objects.create(
+            seller_name='Phát Daily Lifestyle',
+            title='Đèn bàn học chống cận thị LED 3 chế độ sáng bảo vệ mắt',
+            description='Chỉ số hoàn màu Ra>95 tiệm cận ánh sáng tự nhiên, không nhấp nháy, có cổng sạc USB và hẹn giờ tắt tự động.',
+            category='lifestyle',
+            price=185000,
+            original_price=280000,
+            image_url='https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&auto=format&fit=crop&q=80',
+            stock=130,
+            rating=4.9,
+            sold_count=640,
+        )
+
+        p14 = Product.objects.create(
+            seller_name='Bếp Nhà Phát',
+            title='Nồi cơm điện mini đa năng 1.2L lòng gốm ceramic',
+            description='Nấu cơm dẻo thơm, hầm canh, nấu cháo, hấp bánh. Lòng nồi phủ gốm chống dính cao cấp không chứa chất độc hại.',
+            category='lifestyle',
+            price=360000,
+            original_price=520000,
+            image_url='https://images.unsplash.com/photo-1544233726-9f1d2b27be8b?w=600&auto=format&fit=crop&q=80',
+            stock=60,
+            rating=4.7,
+            sold_count=230,
+        )
+
+        p15 = Product.objects.create(
+            seller_name='Bếp Nhà Phát',
+            title='Trà hoa cúc mật ong sấy thăng hoa thanh nhiệt hộp 250g',
+            description='Hoa cúc kim cúc tươi kết hợp mật ong hoa rừng nguyên chất, giúp an thần ngủ ngon, thanh lọc cơ thể và đẹp da.',
+            category='food',
+            price=95000,
+            original_price=140000,
+            image_url='https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80',
+            stock=240,
+            rating=4.9,
+            sold_count=920,
+        )
+
+        p16 = Product.objects.create(
+            seller_name='Bếp Nhà Phát',
+            title='Bánh que rong biển phô mai giòn rụm bịch lớn 300g',
+            description='Lớp vỏ bánh giòn tan bọc phô mai béo ngậy và rong biển sấy thơm ngon, món ăn vặt quốc dân phù hợp mọi lứa tuổi.',
+            category='food',
+            price=55000,
+            original_price=80000,
+            image_url='https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=600&auto=format&fit=crop&q=80',
+            stock=400,
+            rating=4.8,
+            sold_count=1850,
+        )
+
+        p17 = Product.objects.create(
+            seller_name='Phát Beauty & Skincare',
+            title='Kem chống nắng nâng tone kiềm dầu SPF50+ PA++++ 50ml',
+            description='Bảo vệ da toàn diện khỏi tia UVA/UVB và ánh sáng xanh, nâng 1-2 tone tự nhiên mịn lì không bóng nhờn suốt 8 giờ.',
+            category='beauty',
+            price=189000,
+            original_price=280000,
+            image_url='https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=600&auto=format&fit=crop&q=80',
+            stock=160,
+            rating=4.9,
+            sold_count=720,
+        )
+
+        p18 = Product.objects.create(
+            seller_name='Phát Beauty & Skincare',
+            title='Serum Vitamin C 15% mờ thâm sáng da ngừa lão hóa 30ml',
+            description='Dẫn xuất Vitamin C thế hệ mới dịu nhẹ không kích ứng, giảm thâm mụn chỉ sau 14 ngày, dưỡng da sáng mịn căng bóng.',
+            category='beauty',
+            price=219000,
+            original_price=350000,
+            image_url='https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&auto=format&fit=crop&q=80',
+            stock=140,
+            rating=4.9,
+            sold_count=860,
+        )
+
+        self.stdout.write(self.style.SUCCESS('✓ Đã tạo 18 sản phẩm mẫu đầy đủ 5 danh mục.'))
 
         # -------------------------------------------------------------
         # 2. TẠO 8 VIDEO DỌC VÀ GẮN THẺ SẢN PHẨM

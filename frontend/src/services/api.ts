@@ -185,8 +185,11 @@ export const api = {
   },
 
   // Product endpoints
-  async getProducts(): Promise<Product[]> {
-    const res = await fetch(`${API_BASE}/products/`);
+  async getProducts(category?: string, search?: string): Promise<Product[]> {
+    let url = `${API_BASE}/products/?`;
+    if (category && category !== 'all') url += `category=${encodeURIComponent(category)}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    const res = await fetch(url.replace(/[?&]$/, ''));
     if (!res.ok) throw new Error('Không thể tải danh sách sản phẩm');
     return res.json();
   },
@@ -198,6 +201,33 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Không thể tạo sản phẩm mới');
+    return res.json();
+  },
+
+  async updateProduct(id: number, data: Partial<Product>): Promise<Product> {
+    const res = await fetch(`${API_BASE}/products/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể cập nhật sản phẩm');
+    return res.json();
+  },
+
+  async deleteProduct(id: number): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/products/${id}/`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Không thể xóa sản phẩm');
+    return { success: true, message: 'Đã xóa sản phẩm thành công' };
+  },
+
+  async seedMoreProducts(): Promise<{ success: boolean; count: number; products: Product[]; message: string }> {
+    const res = await fetch(`${API_BASE}/products/seed_more/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('Không thể nạp thêm sản phẩm mẫu');
     return res.json();
   },
 

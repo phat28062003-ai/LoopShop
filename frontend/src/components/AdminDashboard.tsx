@@ -34,7 +34,8 @@ import {
   Tag,
   Film,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ShoppingBag
 } from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order, CRMResponse, Product } from '../types';
 import { api, resolveMediaUrl } from '../services/api';
@@ -50,7 +51,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [reports, setReports] = useState<Report[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [crmData, setCrmData] = useState<CRMResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'moderation' | 'videos' | 'orders' | 'telegram'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'moderation' | 'videos' | 'products' | 'orders' | 'telegram'>('overview');
   const [isLoading, setIsLoading] = useState(false);
 
   // CRM state
@@ -102,6 +103,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     { label: 'Balo du lịch chống nước', url: '/videos/v6.mp4' },
     { label: 'Nồi chiên không dầu 6L', url: '/videos/v7.mp4' },
     { label: 'Máy sấy tóc ion âm cao cấp', url: '/videos/v8.mp4' },
+  ];
+
+  // Product Management state
+  const [productSearch, setProductSearch] = useState<string>('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState<string>('all');
+  const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState<boolean>(false);
+  const [isSeedingProducts, setIsSeedingProducts] = useState<boolean>(false);
+  const [productToastMessage, setProductToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Product Form Fields
+  const [prodTitle, setProdTitle] = useState('');
+  const [prodDescription, setProdDescription] = useState('');
+  const [prodCategory, setProdCategory] = useState('tech');
+  const [prodPrice, setProdPrice] = useState<number>(199000);
+  const [prodOriginalPrice, setProdOriginalPrice] = useState<number | ''>(299000);
+  const [prodStock, setProdStock] = useState<number>(100);
+  const [prodSellerName, setProdSellerName] = useState('Phát Official Store');
+  const [prodImageUrl, setProdImageUrl] = useState('');
+
+  // Sample images for quick selection in product form
+  const sampleProductImages = [
+    { label: 'Tai nghe TWS', category: 'tech', url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Smartwatch', category: 'tech', url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Bàn phím cơ', category: 'tech', url: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Loa Bluetooth', category: 'tech', url: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Áo thun Unisex', category: 'fashion', url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Kính râm phi công', category: 'fashion', url: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Giày Sneaker', category: 'fashion', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Túi Canvas', category: 'fashion', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Bình giữ nhiệt', category: 'lifestyle', url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Đèn bàn LED', category: 'lifestyle', url: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Khô gà lá chanh', category: 'food', url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Son dưỡng môi', category: 'beauty', url: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=600&auto=format&fit=crop&q=80' },
+    { label: 'Serum Vitamin C', category: 'beauty', url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600&auto=format&fit=crop&q=80' },
   ];
 
   // Telegram state
@@ -435,6 +473,121 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert('Không thể xóa video, vui lòng thử lại!');
     } finally {
       setIsSubmittingVideo(false);
+    }
+  };
+
+  // Product CRUD Handlers
+  const handleOpenAddProduct = () => {
+    setEditingProduct(null);
+    setProdTitle('');
+    setProdDescription('');
+    setProdCategory('tech');
+    setProdPrice(199000);
+    setProdOriginalPrice(299000);
+    setProdStock(100);
+    setProdSellerName('Phát Official Store');
+    setProdImageUrl(sampleProductImages[0].url);
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setProdTitle(p.title);
+    setProdDescription(p.description || '');
+    setProdCategory(p.category || 'tech');
+    setProdPrice(Number(p.price));
+    setProdOriginalPrice(p.original_price ? Number(p.original_price) : '');
+    setProdStock(p.stock || 0);
+    setProdSellerName(p.seller_name || 'Phát Official Store');
+    setProdImageUrl(p.image_url || '');
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prodTitle.trim()) {
+      alert('Vui lòng nhập tên sản phẩm!');
+      return;
+    }
+    if (!prodPrice || prodPrice <= 0) {
+      alert('Vui lòng nhập giá sản phẩm hợp lệ!');
+      return;
+    }
+
+    try {
+      setIsSubmittingProduct(true);
+      const payload: Partial<Product> = {
+        title: prodTitle.trim(),
+        description: prodDescription.trim(),
+        category: prodCategory,
+        price: prodPrice,
+        original_price: prodOriginalPrice ? Number(prodOriginalPrice) : undefined,
+        stock: Number(prodStock) || 0,
+        seller_name: prodSellerName.trim() || 'Phát Official Store',
+        image_url: prodImageUrl.trim() || sampleProductImages[0].url,
+        is_active: true,
+      };
+
+      if (editingProduct) {
+        await api.updateProduct(editingProduct.id, payload);
+        setProductToastMessage({
+          type: 'success',
+          text: `🎉 Đã cập nhật sản phẩm "${prodTitle}" thành công!`
+        });
+      } else {
+        await api.createProduct(payload);
+        setProductToastMessage({
+          type: 'success',
+          text: `🎉 Đã thêm mới sản phẩm "${prodTitle}" vào kho thành công!`
+        });
+      }
+
+      await loadAdminData();
+      setIsProductModalOpen(false);
+      setTimeout(() => setProductToastMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Không thể lưu sản phẩm, vui lòng thử lại!');
+    } finally {
+      setIsSubmittingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    try {
+      setIsSubmittingProduct(true);
+      await api.deleteProduct(deletingProduct.id);
+      await loadAdminData();
+      setProductToastMessage({
+        type: 'success',
+        text: `Đã xóa sản phẩm "${deletingProduct.title}" khỏi kho.`
+      });
+      setDeletingProduct(null);
+      setTimeout(() => setProductToastMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Không thể xóa sản phẩm!');
+    } finally {
+      setIsSubmittingProduct(false);
+    }
+  };
+
+  const handleSeedMoreProducts = async () => {
+    try {
+      setIsSeedingProducts(true);
+      const res = await api.seedMoreProducts();
+      await loadAdminData();
+      setProductToastMessage({
+        type: 'success',
+        text: `🎉 ${res.message || 'Đã nạp thêm sản phẩm thịnh hành vào kho thành công!'}`
+      });
+      setTimeout(() => setProductToastMessage(null), 6000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.message || 'Không thể nạp sản phẩm mẫu!');
+    } finally {
+      setIsSeedingProducts(false);
     }
   };
 
@@ -1020,6 +1173,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </button>
 
         <button
+          onClick={() => setActiveTab('products')}
+          className={`py-2 px-4 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+            activeTab === 'products'
+              ? 'bg-rose-500 text-white font-bold shadow'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          <span>Quản lý Sản phẩm ({products.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('orders')}
           className={`py-2 px-4 text-xs font-semibold rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap ${
             activeTab === 'orders'
@@ -1049,8 +1214,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <div className="max-w-5xl mx-auto mt-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* 5 Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            {/* 6 Stat Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
               <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between text-neutral-400">
                   <span className="text-xs font-medium">Doanh thu đã thu</span>
@@ -1089,6 +1254,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </p>
                 <span className="text-[10px] text-amber-300/80">
                   👑 {crmData?.summary.vip_customers || 0} VIP (bấm xem)
+                </span>
+              </div>
+
+              <div 
+                onClick={() => setActiveTab('products')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1 hover:border-rose-500/60 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
+                title="Bấm để vào trang Quản lý Sản phẩm"
+              >
+                <div className="flex items-center justify-between text-neutral-400 group-hover:text-rose-400">
+                  <span className="text-xs font-medium">Kho sản phẩm</span>
+                  <ShoppingBag className="w-4 h-4 text-rose-500" />
+                </div>
+                <p className="text-lg md:text-xl font-black text-white">
+                  {products.length}
+                </p>
+                <span className="text-[10px] text-rose-300 font-bold flex items-center space-x-1">
+                  <span>🛍️ Thêm / Nạp mẫu</span>
                 </span>
               </div>
 
@@ -1905,6 +2087,266 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </div>
         )}
 
+        {activeTab === 'products' && (
+          <div className="space-y-4">
+            {/* Header + Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-800 gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-neutral-200 flex items-center space-x-2">
+                  <ShoppingBag className="w-4 h-4 text-rose-500" />
+                  <span>Quản lý Toàn bộ Sản phẩm ({products.length})</span>
+                </h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Thêm mới, sửa thông tin, giá bán, tồn kho và ảnh sản phẩm đính kèm vào video
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleSeedMoreProducts}
+                  disabled={isSeedingProducts}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Nạp nhanh 10 sản phẩm thịnh hành (Tech, Fashion, Food, Beauty)"
+                >
+                  {isSeedingProducts ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang nạp...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>⚡ Nạp 10 SP thịnh hành</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddProduct}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Thêm sản phẩm mới</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Product Toast Feedback */}
+            {productToastMessage && (
+              <div className={`p-3 rounded-xl border text-xs flex items-center space-x-2 animate-in fade-in duration-200 ${
+                productToastMessage.type === 'success'
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+              }`}>
+                {productToastMessage.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                )}
+                <span>{productToastMessage.text}</span>
+              </div>
+            )}
+
+            {/* Search & Category Filter Pills */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm sản phẩm theo tên, mô tả hoặc người bán..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+                {productSearch && (
+                  <button
+                    onClick={() => setProductSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter Pills */}
+              <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs">
+                {[
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'tech', label: 'Công nghệ ⚡' },
+                  { id: 'fashion', label: 'Thời trang 👕' },
+                  { id: 'lifestyle', label: 'Đời sống 🏠' },
+                  { id: 'food', label: 'Ẩm thực 🍔' },
+                  { id: 'beauty', label: 'Làm đẹp 💄' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setProductCategoryFilter(cat.id)}
+                    className={`px-3 py-1.5 rounded-xl font-medium whitespace-nowrap transition-all text-xs cursor-pointer ${
+                      productCategoryFilter === cat.id
+                        ? 'bg-rose-600 text-white font-bold shadow'
+                        : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Product Cards Grid */}
+            {(() => {
+              const filteredProducts = products.filter((p) => {
+                if (productSearch.trim()) {
+                  const q = productSearch.toLowerCase().trim();
+                  const matchTitle = p.title.toLowerCase().includes(q);
+                  const matchDesc = (p.description || '').toLowerCase().includes(q);
+                  const matchSeller = (p.seller_name || '').toLowerCase().includes(q);
+                  if (!matchTitle && !matchDesc && !matchSeller) return false;
+                }
+                if (productCategoryFilter !== 'all' && p.category !== productCategoryFilter) {
+                  return false;
+                }
+                return true;
+              });
+
+              if (filteredProducts.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-neutral-900/50 rounded-2xl border border-neutral-800 space-y-3">
+                    <ShoppingBag className="w-10 h-10 mx-auto text-neutral-600" />
+                    <p className="text-xs text-neutral-400 font-medium">Không tìm thấy sản phẩm nào phù hợp</p>
+                    <button
+                      onClick={handleOpenAddProduct}
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600/20 text-rose-400 border border-rose-500/30 text-xs font-semibold hover:bg-rose-600/30 transition-colors"
+                    >
+                      + Thêm sản phẩm đầu tiên
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {filteredProducts.map((p) => {
+                    const discountPercent = p.original_price && Number(p.original_price) > Number(p.price)
+                      ? Math.round(((Number(p.original_price) - Number(p.price)) / Number(p.original_price)) * 100)
+                      : null;
+
+                    const catLabel = 
+                      p.category === 'tech' ? 'Công nghệ ⚡' :
+                      p.category === 'fashion' ? 'Thời trang 👕' :
+                      p.category === 'lifestyle' ? 'Đời sống 🏠' :
+                      p.category === 'food' ? 'Ẩm thực 🍔' :
+                      p.category === 'beauty' ? 'Làm đẹp 💄' : 'Sản phẩm';
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700/80 transition-all flex flex-col justify-between space-y-3"
+                      >
+                        <div className="space-y-2.5">
+                          {/* Image + Badges */}
+                          <div className="relative w-full h-44 rounded-xl overflow-hidden bg-neutral-950 border border-neutral-800">
+                            <img
+                              src={p.image_url}
+                              alt={p.title}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600';
+                              }}
+                            />
+                            {/* Category Badge */}
+                            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white border border-white/10">
+                              {catLabel}
+                            </div>
+                            {/* Stock Badge */}
+                            <div className="absolute top-2 right-2">
+                              {p.stock > 0 ? (
+                                <span className="bg-emerald-500/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  Kho: {p.stock}
+                                </span>
+                              ) : (
+                                <span className="bg-rose-500/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow">
+                                  Hết hàng
+                                </span>
+                              )}
+                            </div>
+                            {/* ID */}
+                            <div className="absolute bottom-2 right-2 bg-black/70 px-1.5 py-0.5 rounded text-[9px] font-mono text-neutral-300">
+                              #{p.id}
+                            </div>
+                          </div>
+
+                          {/* Info */}
+                          <div>
+                            <p className="text-[10px] text-neutral-400 font-medium">@{p.seller_name}</p>
+                            <h3 className="text-xs font-bold text-white line-clamp-2 mt-0.5" title={p.title}>
+                              {p.title}
+                            </h3>
+                            {p.description && (
+                              <p className="text-[11px] text-neutral-400 line-clamp-2 mt-1 leading-relaxed">
+                                {p.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Price & Rating */}
+                          <div className="flex items-baseline justify-between pt-1">
+                            <div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-sm font-black text-rose-400 font-mono">
+                                  {Number(p.price).toLocaleString('vi-VN')}₫
+                                </span>
+                                {discountPercent && (
+                                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                    -{discountPercent}%
+                                  </span>
+                                )}
+                              </div>
+                              {p.original_price && Number(p.original_price) > Number(p.price) && (
+                                <span className="text-[10px] text-neutral-500 line-through font-mono">
+                                  {Number(p.original_price).toLocaleString('vi-VN')}₫
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-right text-[10px] text-neutral-400">
+                              <span className="text-amber-400 font-bold">★ {p.rating || 4.9}</span>
+                              <span className="mx-1">•</span>
+                              <span>Đã bán {p.sold_count || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions: Edit & Delete */}
+                        <div className="pt-2 border-t border-neutral-800 flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleOpenEditProduct(p)}
+                            className="px-3 py-1.5 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer"
+                            title="Sửa thông tin sản phẩm"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Sửa</span>
+                          </button>
+                          <button
+                            onClick={() => setDeletingProduct(p)}
+                            className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer"
+                            title="Xóa sản phẩm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Xóa</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {activeTab === 'orders' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-800 gap-2">
@@ -2426,6 +2868,307 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Xác nhận xóa vĩnh viễn</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Thêm / Chỉnh sửa Sản phẩm */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 md:p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto space-y-4 shadow-2xl relative my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    {editingProduct ? 'Chỉnh sửa Sản phẩm' : 'Thêm Sản phẩm mới vào Kho'}
+                  </h3>
+                  <p className="text-[11px] text-neutral-400">
+                    Sản phẩm sẽ hiển thị để người dùng mua sắm và có thể gắn vào video feed
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsProductModalOpen(false)}
+                className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs">
+              {/* Tên sản phẩm */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Tên sản phẩm <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Tai nghe Bluetooth ANC chống ồn..."
+                  value={prodTitle}
+                  onChange={(e) => setProdTitle(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+              </div>
+
+              {/* Danh mục & Người bán */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Danh mục sản phẩm <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={prodCategory}
+                    onChange={(e) => setProdCategory(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500 transition-colors cursor-pointer"
+                  >
+                    <option value="tech">⚡ Công nghệ</option>
+                    <option value="fashion">👕 Thời trang</option>
+                    <option value="lifestyle">🏠 Đời sống</option>
+                    <option value="food">🍔 Ẩm thực</option>
+                    <option value="beauty">💄 Làm đẹp</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Cửa hàng / Người bán
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Phát Official Store"
+                    value={prodSellerName}
+                    onChange={(e) => setProdSellerName(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Giá bán, Giá gốc & Tồn kho */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Giá bán (VND) <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1000}
+                    step={1000}
+                    value={prodPrice}
+                    onChange={(e) => setProdPrice(Number(e.target.value))}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Giá gốc (gạch ngang)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    placeholder="Không bắt buộc"
+                    value={prodOriginalPrice}
+                    onChange={(e) => setProdOriginalPrice(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Số lượng trong kho
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={prodStock}
+                    onChange={(e) => setProdStock(Number(e.target.value))}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              {/* Ảnh sản phẩm + Kho ảnh mẫu chọn nhanh */}
+              <div className="p-3 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-2.5">
+                <label className="block text-neutral-300 font-semibold">
+                  Link hình ảnh sản phẩm (URL) <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="https://images.unsplash.com/..."
+                  value={prodImageUrl}
+                  onChange={(e) => setProdImageUrl(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono text-[11px] focus:outline-none focus:border-rose-500"
+                />
+
+                {/* Quick Sample Image Chips */}
+                <div>
+                  <p className="text-[10px] text-neutral-400 mb-1.5">⚡ Hoặc chọn nhanh ảnh mẫu chất lượng cao theo ngành:</p>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                    {sampleProductImages.map((item, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setProdImageUrl(item.url);
+                          setProdCategory(item.category);
+                          if (!prodTitle) setProdTitle(item.label);
+                        }}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all ${
+                          prodImageUrl === item.url
+                            ? 'bg-rose-600 text-white font-bold'
+                            : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Image Preview */}
+                {prodImageUrl && (
+                  <div className="flex items-center space-x-3 pt-2 border-t border-neutral-800/80">
+                    <img
+                      src={prodImageUrl}
+                      alt="Xem trước"
+                      className="w-14 h-14 rounded-xl object-cover bg-neutral-900 border border-neutral-700"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600';
+                      }}
+                    />
+                    <div className="text-[11px] text-neutral-400">
+                      <p className="text-emerald-400 font-semibold flex items-center space-x-1">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Ảnh xem trước hợp lệ</span>
+                      </p>
+                      <p className="font-mono text-[10px] truncate max-w-xs text-neutral-500">
+                        {prodImageUrl}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Mô tả chi tiết */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Mô tả sản phẩm (Tính năng, chất liệu, hướng dẫn sử dụng)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Nhập mô tả chi tiết sản phẩm để thu hút khách hàng..."
+                  value={prodDescription}
+                  onChange={(e) => setProdDescription(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors resize-none"
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setIsProductModalOpen(false)}
+                  disabled={isSubmittingProduct}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingProduct}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingProduct ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{editingProduct ? 'Cập nhật sản phẩm' : 'Tạo sản phẩm mới'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Xác nhận xóa sản phẩm */}
+      {deletingProduct && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 md:p-6 w-full max-w-md space-y-4 shadow-2xl">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Xác nhận xóa sản phẩm</h3>
+                <p className="text-xs text-neutral-400">Hành động này không thể hoàn tác</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 flex space-x-3 items-center">
+              <img
+                src={deletingProduct.image_url}
+                alt=""
+                className="w-14 h-14 rounded-xl object-cover bg-neutral-900 flex-shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-neutral-400">#{deletingProduct.id} • @{deletingProduct.seller_name}</p>
+                <p className="text-xs font-bold text-white line-clamp-1 mt-0.5">{deletingProduct.title}</p>
+                <p className="text-xs font-bold text-rose-400 font-mono mt-0.5">
+                  {Number(deletingProduct.price).toLocaleString('vi-VN')}₫
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-300 leading-relaxed">
+              Bạn có chắc chắn muốn xóa sản phẩm này khỏi kho hàng?
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-2 border-t border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setDeletingProduct(null)}
+                disabled={isSubmittingProduct}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteProduct}
+                disabled={isSubmittingProduct}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmittingProduct ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa</span>
                   </>
                 )}
               </button>

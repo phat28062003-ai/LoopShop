@@ -55,7 +55,101 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [isTelegramConfigured, setIsTelegramConfigured] = useState<boolean>(false);
   const [isSavingTelegram, setIsSavingTelegram] = useState<boolean>(false);
   const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
-  const [telegramStatusMessage, setTelegramStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [telegramStatusMessage, setTelegramStatusMessage] = useState<{
+    type: 'success' | 'error';
+    title?: string;
+    text: string;
+    hint?: string;
+  } | null>(null);
+
+  const parseFriendlyTelegramError = (err: any): { title: string; text: string; hint?: string } => {
+    if (!err) {
+      return {
+        title: 'Không thể gửi tin nhắn',
+        text: 'Không nhận được phản hồi từ Telegram.',
+        hint: 'Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau vài giây.',
+      };
+    }
+
+    if (typeof err === 'object') {
+      if (err.title && err.message) {
+        return {
+          title: err.title,
+          text: err.message,
+          hint: err.hint,
+        };
+      }
+    }
+
+    const raw = typeof err === 'string' ? err : (err.error || err.message || JSON.stringify(err));
+
+    // Handle raw Telegram JSON string e.g. {"ok":false,"error_code":404,"description":"Not Found"}
+    if (typeof raw === 'string' && (raw.startsWith('{') || raw.includes('error_code'))) {
+      try {
+        const parsed = JSON.parse(raw);
+        const code = parsed.error_code;
+        const desc = (parsed.description || '').toLowerCase();
+
+        if (code === 404 || desc.includes('not found')) {
+          return {
+            title: 'Bot Token không tồn tại',
+            text: 'Mã Bot Token không tìm thấy trên hệ sinh thái Telegram.',
+            hint: 'Vui lòng kiểm tra lại Token bạn copy từ @BotFather (Token hợp lệ dạng: 123456789:AAH...).',
+          };
+        }
+        if (desc.includes('chat not found')) {
+          return {
+            title: 'Không tìm thấy Chat ID',
+            text: 'Telegram không tìm thấy cuộc trò chuyện với Chat ID này.',
+            hint: 'Bạn cần mở Telegram tìm bot vừa tạo và bấm nút "Bắt đầu" (Start) trước khi nhận tin.',
+          };
+        }
+        if (code === 401 || desc.includes('unauthorized')) {
+          return {
+            title: 'Bot Token không hợp lệ',
+            text: 'Bot Token sai hoặc đã bị thu hồi quyền truy cập.',
+            hint: 'Hãy mở chat với @BotFather và gõ /token để lấy mã Token mới.',
+          };
+        }
+        if (code === 403 || desc.includes('blocked by the user')) {
+          return {
+            title: 'Bot đang bị chặn',
+            text: 'Bạn đang chặn (block) Bot này trên ứng dụng Telegram.',
+            hint: 'Vui lòng mở cuộc trò chuyện với Bot và chọn "Bỏ chặn" (Unblock).',
+          };
+        }
+        return {
+          title: 'Telegram phản hồi lỗi',
+          text: parsed.description || 'Không thể gửi tin nhắn qua Telegram.',
+          hint: 'Kiểm tra lại tính chính xác của Bot Token và Chat ID.',
+        };
+      } catch {
+        // Fallback
+      }
+    }
+
+    const rawLower = String(raw).toLowerCase();
+    if (rawLower.includes('not found') || rawLower.includes('404')) {
+      return {
+        title: 'Bot Token không tồn tại',
+        text: 'Mã Bot Token không tìm thấy trên Telegram.',
+        hint: 'Vui lòng kiểm tra lại Token bạn copy từ @BotFather (dạng 123456789:AAH...).',
+      };
+    }
+    if (rawLower.includes('chat not found')) {
+      return {
+        title: 'Không tìm thấy Chat ID',
+        text: 'Telegram không tìm thấy cuộc trò chuyện với Chat ID này.',
+        hint: 'Bạn hãy mở Telegram, tìm bot của mình và bấm Bắt đầu (Start) trước.',
+      };
+    }
+
+    return {
+      title: 'Gửi tin nhắn test thất bại',
+      text: String(raw),
+      hint: 'Kiểm tra lại Bot Token từ @BotFather và Chat ID từ @userinfobot.',
+    };
+  };
 
   const loadAdminData = async () => {
     try {
@@ -95,43 +189,136 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   const handleSaveTelegram = async () => {
-    if (!telegramToken.trim() || !telegramChatId.trim()) {
-      setTelegramStatusMessage({ type: 'error', text: 'Vui lòng điền đủ Bot Token và Chat ID!' });
+    const token = telegramToken.trim();
+    const chatId = telegramChatId.trim();
+
+    if (!token || !chatId) {
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Chưa đủ thông tin cấu hình',
+        text: 'Vui lòng điền đủ cả Bot Token và Chat ID trước khi lưu!',
+        hint: 'Xem hướng dẫn 2 bước ở bên dưới để lấy Token từ @BotFather và Chat ID từ @userinfobot.',
+      });
       return;
     }
+
+    if (!token.includes(':') || token.length < 15) {
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Định dạng Bot Token chưa đúng',
+        text: `Chuỗi "${token}" không phải là Token chuẩn của Telegram.`,
+        hint: 'Token chuẩn từ @BotFather thường có dấu hai chấm ":" ngăn cách, ví dụ: 7891234567:AAHk_xY82b...',
+      });
+      return;
+    }
+
     try {
       setIsSavingTelegram(true);
       setTelegramStatusMessage(null);
-      await api.saveTelegramConfig({
-        bot_token: telegramToken.trim(),
-        chat_id: telegramChatId.trim()
+      const res = await api.saveTelegramConfig({
+        bot_token: token,
+        chat_id: chatId,
       });
-      localStorage.setItem('loopshop_telegram_token', telegramToken.trim());
-      localStorage.setItem('loopshop_telegram_chatid', telegramChatId.trim());
+
+      if (!res.success) {
+        const friendly = parseFriendlyTelegramError(res);
+        setTelegramStatusMessage({
+          type: 'error',
+          title: friendly.title,
+          text: friendly.text,
+          hint: friendly.hint,
+        });
+        return;
+      }
+
+      localStorage.setItem('loopshop_telegram_token', token);
+      localStorage.setItem('loopshop_telegram_chatid', chatId);
       setIsTelegramConfigured(true);
-      setTelegramStatusMessage({ type: 'success', text: 'Đã lưu cấu hình Telegram Bot thành công!' });
+      setTelegramStatusMessage({
+        type: 'success',
+        title: 'Đã lưu cấu hình thành công! ✅',
+        text: 'LoopShop sẽ tự động gửi thông báo ting-ting về Telegram này mỗi khi có khách đặt hàng mới hoặc thanh toán VietQR!',
+      });
     } catch {
-      setTelegramStatusMessage({ type: 'error', text: 'Không thể lưu cấu hình Telegram.' });
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Lỗi lưu cấu hình',
+        text: 'Không thể kết nối đến máy chủ để lưu cấu hình Telegram.',
+        hint: 'Vui lòng kiểm tra lại kết nối mạng của bạn.',
+      });
     } finally {
       setIsSavingTelegram(false);
     }
   };
 
   const handleTestTelegram = async () => {
+    const token = telegramToken.trim();
+    const chatId = telegramChatId.trim();
+
+    // 1. Kiểm tra rỗng
+    if (!token || !chatId) {
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Chưa đủ thông tin cấu hình',
+        text: 'Vui lòng nhập đầy đủ cả Telegram Bot Token và Chat ID trước khi gửi test!',
+        hint: 'Mẹo: Xem hướng dẫn 2 bước ở bên dưới để lấy Token từ @BotFather và Chat ID từ @userinfobot.',
+      });
+      return;
+    }
+
+    // 2. Kiểm tra định dạng Token
+    if (!token.includes(':') || token.length < 15) {
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Định dạng Bot Token chưa đúng',
+        text: `Chuỗi "${token}" không phải là định dạng Token chuẩn của Telegram.`,
+        hint: 'Token từ @BotFather thường gồm dãy số, dấu hai chấm và chuỗi ký tự ngẫu nhiên (ví dụ: 7891234567:AAHk_xY82b...).',
+      });
+      return;
+    }
+
+    // 3. Kiểm tra định dạng Chat ID
+    if (!/^-?\d+$/.test(chatId)) {
+      setTelegramStatusMessage({
+        type: 'error',
+        title: 'Định dạng Chat ID chưa đúng',
+        text: `"${chatId}" không hợp lệ. Chat ID Telegram phải là một dãy số.`,
+        hint: 'Mẹo: Tìm bot @userinfobot trên Telegram, bấm Start để xem ID của bạn (ví dụ: 123456789).',
+      });
+      return;
+    }
+
     try {
       setIsTestingTelegram(true);
       setTelegramStatusMessage(null);
       const res = await api.testTelegramNotification({
-        bot_token: telegramToken.trim() || undefined,
-        chat_id: telegramChatId.trim() || undefined,
+        bot_token: token || undefined,
+        chat_id: chatId || undefined,
       });
+
       if (res.success) {
-        setTelegramStatusMessage({ type: 'success', text: 'Đã gửi tin nhắn test thành công! Hãy kiểm tra ứng dụng Telegram của bạn.' });
+        setTelegramStatusMessage({
+          type: 'success',
+          title: 'Đã gửi test thành công! 🎉',
+          text: 'Tin nhắn thử nghiệm đã được gửi đến Telegram của bạn. Hãy mở điện thoại kiểm tra xem có chuông ting-ting chưa nhé!',
+        });
       } else {
-        setTelegramStatusMessage({ type: 'error', text: `Gửi test thất bại: ${res.error || res.message}` });
+        const friendly = parseFriendlyTelegramError(res);
+        setTelegramStatusMessage({
+          type: 'error',
+          title: friendly.title,
+          text: friendly.text,
+          hint: friendly.hint,
+        });
       }
-    } catch {
-      setTelegramStatusMessage({ type: 'error', text: 'Không thể kết nối đến máy chủ gửi tin nhắn.' });
+    } catch (err: any) {
+      const friendly = parseFriendlyTelegramError(err?.message || 'Không thể kết nối đến máy chủ gửi tin nhắn.');
+      setTelegramStatusMessage({
+        type: 'error',
+        title: friendly.title,
+        text: friendly.text,
+        hint: friendly.hint,
+      });
     } finally {
       setIsTestingTelegram(false);
     }
@@ -281,13 +468,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       </div>
 
       {telegramStatusMessage && (
-        <div className={`p-3 rounded-xl text-xs font-medium flex items-center space-x-2 ${
+        <div className={`p-4 rounded-2xl text-xs space-y-2 transition-all border animate-in fade-in-50 duration-200 ${
           telegramStatusMessage.type === 'success' 
-            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+            ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30' 
+            : 'bg-rose-950/40 text-rose-200 border-rose-500/30'
         }`}>
-          {telegramStatusMessage.type === 'success' ? <Check className="w-4 h-4 flex-shrink-0" /> : <ShieldAlert className="w-4 h-4 flex-shrink-0" />}
-          <span>{telegramStatusMessage.text}</span>
+          <div className="flex items-start space-x-3">
+            {telegramStatusMessage.type === 'success' ? (
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 mt-0.5 border border-emerald-500/30">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0 mt-0.5 border border-rose-500/30">
+                <ShieldAlert className="w-3.5 h-3.5" />
+              </div>
+            )}
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-sm text-white">
+                {telegramStatusMessage.title || (telegramStatusMessage.type === 'success' ? 'Thành công' : 'Gửi tin nhắn test thất bại')}
+              </p>
+              <p className="text-xs leading-relaxed text-neutral-300">
+                {telegramStatusMessage.text}
+              </p>
+              {telegramStatusMessage.hint && (
+                <div className="mt-2 p-2.5 rounded-xl bg-neutral-900/90 border border-neutral-800 text-[11px] text-amber-300 flex items-start space-x-2">
+                  <span className="flex-shrink-0 text-sm">💡</span>
+                  <span className="leading-relaxed">{telegramStatusMessage.hint}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

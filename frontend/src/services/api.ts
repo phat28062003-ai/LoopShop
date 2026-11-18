@@ -319,23 +319,47 @@ export const api = {
     return res.json();
   },
 
-  async saveTelegramConfig(data: { bot_token: string; chat_id: string }): Promise<{ success: boolean; message: string; is_configured: boolean; chat_id: string }> {
+  async saveTelegramConfig(data: { bot_token: string; chat_id: string }): Promise<{ success: boolean; title?: string; message: string; hint?: string; is_configured?: boolean; chat_id?: string; error?: string }> {
     const res = await fetch(`${API_BASE}/telegram/config/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Không thể lưu cấu hình Telegram');
-    return res.json();
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        title: json.title || 'Lỗi lưu cấu hình',
+        message: json.message || `Lỗi máy chủ (${res.status})`,
+        hint: json.hint,
+        error: json.error || json.message,
+      };
+    }
+    return json;
   },
 
-  async testTelegramNotification(data: { bot_token?: string; chat_id?: string; message?: string }): Promise<{ success: boolean; message: string; error?: string }> {
+  async testTelegramNotification(data: { bot_token?: string; chat_id?: string; message?: string }): Promise<{
+    success: boolean;
+    title?: string;
+    message: string;
+    hint?: string;
+    error?: string;
+  }> {
     const res = await fetch(`${API_BASE}/telegram/test/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Không thể gửi kiểm tra Telegram');
-    return res.json();
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        title: json.title || 'Lỗi gửi tin',
+        message: json.message || `Lỗi máy chủ (${res.status})`,
+        hint: json.hint,
+        error: json.error || json.message,
+      };
+    }
+    return json;
   },
 };

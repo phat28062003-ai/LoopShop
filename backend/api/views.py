@@ -608,9 +608,20 @@ def telegram_config_view(request):
     if request.method == 'POST':
         bot_token = request.data.get('bot_token', '').strip()
         chat_id = request.data.get('chat_id', '').strip()
+
+        if bot_token and (':' not in bot_token or len(bot_token) < 15):
+            return Response({
+                'success': False,
+                'title': 'Định dạng Bot Token chưa đúng',
+                'message': 'Mã Token chưa đúng định dạng. Token chuẩn lấy từ @BotFather thường có dạng: 123456789:AAH...',
+                'hint': 'Hãy mở ứng dụng Telegram chat với @BotFather và kiểm tra lại Token.',
+                'error': 'Invalid token format'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         saved = save_telegram_config(bot_token, chat_id)
         return Response({
             'success': True,
+            'title': 'Lưu cấu hình thành công',
             'message': 'Đã lưu cấu hình Telegram Bot thành công!',
             'is_configured': bool(bot_token and chat_id),
             'chat_id': chat_id

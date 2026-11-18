@@ -1038,17 +1038,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <span className="text-[10px] text-neutral-500">Cần xử lý gấp</span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1">
-                <div className="flex items-center justify-between text-neutral-400">
+              <div 
+                onClick={() => setActiveTab('videos')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-1 hover:border-rose-500/60 cursor-pointer transition-all hover:scale-[1.02] active:scale-95 group"
+                title="Bấm để vào trang Quản lý: Thêm, Sửa, Xóa video"
+              >
+                <div className="flex items-center justify-between text-neutral-400 group-hover:text-rose-400">
                   <span className="text-xs font-medium">Video hệ thống</span>
-                  <Eye className="w-4 h-4 text-indigo-400" />
+                  <Film className="w-4 h-4 text-rose-500" />
                 </div>
                 <p className="text-lg md:text-xl font-black text-white">
                   {videos.length}
                 </p>
-                <span className="text-[10px] text-rose-400">
-                  {videos.filter(v => v.is_hidden).length} video bị ẩn
+                <span className="text-[10px] text-rose-300 font-bold flex items-center space-x-1">
+                  <span>🎬 Thêm / Sửa / Xóa</span>
                 </span>
+              </div>
+            </div>
+
+            {/* Quick Action Banner for Videos right on Overview */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-950/60 via-neutral-900 to-neutral-900 border border-rose-500/40 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xl">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Film className="w-5 h-5 text-rose-500 animate-pulse" />
+                  <h3 className="text-sm font-bold text-white">
+                    Quản Lý Video Feed ({videos.length} video đang phát)
+                  </h3>
+                </div>
+                <p className="text-xs text-neutral-300 leading-relaxed max-w-xl">
+                  Bạn có thể <strong>Thêm video mới</strong> từ máy tính, <strong>Chỉnh sửa</strong> tiêu đề và sản phẩm gắn kèm, hoặc <strong>Xóa vĩnh viễn</strong> video khỏi hệ thống.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2 flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setActiveTab('videos');
+                    handleOpenAddVideo();
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>➕ Thêm Video Mới</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('videos')}
+                  className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center space-x-1.5 border border-neutral-700 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Film className="w-4 h-4 text-sky-400" />
+                  <span>🎬 Xem & Sửa/Xóa Video</span>
+                </button>
               </div>
             </div>
 

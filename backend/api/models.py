@@ -82,10 +82,10 @@ class Order(models.Model):
     payment_code = models.CharField(max_length=32)
     is_paid = models.BooleanField(default=False)
 
-    # VietQR banking details for this store
-    bank_id = models.CharField(max_length=30, default='MB')
-    account_no = models.CharField(max_length=30, default='0901234567')
-    account_name = models.CharField(max_length=120, default='NGUYEN TAN PHAT')
+    # VietQR banking details for this store (VietinBank - LU TIEN PHAT - 93287556868)
+    bank_id = models.CharField(max_length=30, default='ICB')
+    account_no = models.CharField(max_length=30, default='93287556868')
+    account_name = models.CharField(max_length=120, default='LU TIEN PHAT')
     vietqr_url = models.CharField(max_length=500, blank=True)
 
     note = models.TextField(blank=True)

@@ -31,6 +31,7 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [copiedMemo, setCopiedMemo] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
+  const [qrMode, setQrMode] = useState<'card' | 'dynamic'>('card');
 
   if (!isOpen) return null;
 
@@ -236,13 +237,55 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
 
           {step === 'qr' && currentOrder && (
             <div className="space-y-4 text-center">
+              {/* QR Mode Switcher */}
+              <div className="flex items-center justify-center space-x-1.5 p-1 bg-neutral-950 rounded-xl border border-neutral-800 w-fit mx-auto text-xs">
+                <button
+                  type="button"
+                  onClick={() => setQrMode('card')}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                    qrMode === 'card'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Thẻ VietQR của Phát
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQrMode('dynamic')}
+                  className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                    qrMode === 'dynamic'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Mã QR Napas247 (Tự điền tiền)
+                </button>
+              </div>
+
               {/* VietQR Code Display */}
-              <div className="bg-white p-3.5 rounded-2xl mx-auto w-fit shadow-2xl border-4 border-emerald-500/30">
-                <img
-                  src={currentOrder.vietqr_url}
-                  alt="VietQR Code"
-                  className="w-56 h-auto object-contain mx-auto"
-                />
+              <div className="bg-white p-3 rounded-2xl mx-auto w-fit shadow-2xl border-4 border-emerald-500/30 flex flex-col items-center">
+                {qrMode === 'card' ? (
+                  <img
+                    src="/images/vietqr-phat.jpg"
+                    alt="Thẻ VietQR Lu Tien Phat"
+                    className="w-56 h-auto object-contain mx-auto rounded-lg"
+                  />
+                ) : (
+                  <img
+                    src={`https://img.vietqr.io/image/ICB-93287556868-compact2.png?amount=${currentOrder.total_amount}&addInfo=DON%20HANG%20${currentOrder.order_code}&accountName=LU%20TIEN%20PHAT`}
+                    alt="VietQR Napas247 Code"
+                    className="w-56 h-auto object-contain mx-auto"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/images/vietqr-phat.jpg';
+                    }}
+                  />
+                )}
+                <div className="mt-2 text-[11px] font-bold text-neutral-800 flex items-center space-x-1">
+                  <span>LU TIEN PHAT</span>
+                  <span>•</span>
+                  <span className="font-mono text-emerald-700">93287556868</span>
+                </div>
               </div>
 
               {currentOrder.voucher_code && Number(currentOrder.discount_amount) > 0 && (
@@ -260,20 +303,20 @@ export const VietQRCheckoutModal: React.FC<VietQRCheckoutModalProps> = ({
               <div className="bg-neutral-800/80 rounded-xl p-3 border border-neutral-700 text-left space-y-2 text-xs">
                 <div className="flex justify-between items-center py-1 border-b border-neutral-700/60">
                   <span className="text-neutral-400">Ngân hàng:</span>
-                  <span className="font-bold text-white uppercase">{currentOrder.bank_id} (Quân Đội)</span>
+                  <span className="font-bold text-white">VietinBank (Ngân hàng TMCP Công Thương)</span>
                 </div>
 
                 <div className="flex justify-between items-center py-1 border-b border-neutral-700/60">
                   <span className="text-neutral-400">Chủ tài khoản:</span>
-                  <span className="font-bold text-white uppercase">{currentOrder.account_name}</span>
+                  <span className="font-bold text-white uppercase">{currentOrder.account_name || 'LU TIEN PHAT'}</span>
                 </div>
 
                 <div className="flex justify-between items-center py-1 border-b border-neutral-700/60">
                   <span className="text-neutral-400">Số tài khoản:</span>
                   <div className="flex items-center space-x-1.5">
-                    <span className="font-mono font-bold text-amber-300">{currentOrder.account_no}</span>
+                    <span className="font-mono font-bold text-amber-300">{currentOrder.account_no || '93287556868'}</span>
                     <button
-                      onClick={() => handleCopy(currentOrder.account_no, 'acc')}
+                      onClick={() => handleCopy(currentOrder.account_no || '93287556868', 'acc')}
                       className="p-1 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition-colors"
                       title="Sao chép số tài khoản"
                     >

@@ -332,9 +332,9 @@ class Command(BaseCommand):
             total_amount=399000,
             status='completed',
             is_paid=True,
-            bank_id='MB',
-            account_no='0901234567',
-            account_name='NGUYEN TAN PHAT',
+            bank_id='ICB',
+            account_no='93287556868',
+            account_name='LU TIEN PHAT',
             note='Giao giờ hành chính giúp em ạ'
         )
         OrderItem.objects.create(
@@ -349,9 +349,9 @@ class Command(BaseCommand):
             total_amount=1039000,
             status='confirmed',
             is_paid=True,
-            bank_id='MB',
-            account_no='0901234567',
-            account_name='NGUYEN TAN PHAT',
+            bank_id='ICB',
+            account_no='93287556868',
+            account_name='LU TIEN PHAT',
             note='Đóng gói cẩn thận giúp shop nhé'
         )
         OrderItem.objects.create(
@@ -369,9 +369,9 @@ class Command(BaseCommand):
             total_amount=224000,
             status='shipping',
             is_paid=True,
-            bank_id='MB',
-            account_no='0901234567',
-            account_name='NGUYEN TAN PHAT',
+            bank_id='ICB',
+            account_no='93287556868',
+            account_name='LU TIEN PHAT',
             note='Gọi trước khi giao 15 phút'
         )
         OrderItem.objects.create(
@@ -389,9 +389,9 @@ class Command(BaseCommand):
             total_amount=290000,
             status='pending',
             is_paid=False,
-            bank_id='MB',
-            account_no='0901234567',
-            account_name='NGUYEN TAN PHAT',
+            bank_id='ICB',
+            account_no='93287556868',
+            account_name='LU TIEN PHAT',
             note='Chuyển khoản VietQR qua app ngân hàng'
         )
         OrderItem.objects.create(
@@ -406,9 +406,9 @@ class Command(BaseCommand):
             total_amount=248000,
             status='pending',
             is_paid=False,
-            bank_id='MB',
-            account_no='0901234567',
-            account_name='NGUYEN TAN PHAT',
+            bank_id='ICB',
+            account_no='93287556868',
+            account_name='LU TIEN PHAT',
             note='Màu son dưỡng hồng đào nhé shop'
         )
         OrderItem.objects.create(

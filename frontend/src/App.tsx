@@ -364,14 +364,21 @@ export const App: React.FC = () => {
     <div className="w-screen h-screen bg-neutral-950 flex flex-col md:flex-row items-center justify-center overflow-hidden">
       {/* Desktop Top Control Bar (Only visible on wide screens) */}
       <div className="hidden md:flex fixed top-3 left-4 right-4 z-40 items-center justify-between pointer-events-none">
-        {/* Brand Logo with Long-Press Secret Gate */}
+        {/* Brand Logo with 1-Click & Long-Press Secret Gate */}
         <div 
+          onClick={() => {
+            if (!isAdminLoggedIn) {
+              setIsAdminLoginOpen(true);
+            } else {
+              setCurrentTab(currentTab === 'admin' ? 'feed' : 'admin');
+            }
+          }}
           onMouseDown={handleLogoPressStart}
           onMouseUp={handleLogoPressEnd}
           onTouchStart={handleLogoPressStart}
           onTouchEnd={handleLogoPressEnd}
-          className="flex items-center space-x-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-neutral-800 shadow-xl pointer-events-auto cursor-pointer select-none active:scale-95 transition-transform"
-          title="Nhấn giữ 2 giây để mở đăng nhập Quản trị viên"
+          className="flex items-center space-x-2 bg-neutral-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-neutral-800 shadow-xl pointer-events-auto cursor-pointer select-none active:scale-95 hover:border-neutral-700 transition-all"
+          title="Bấm hoặc nhấn giữ để mở bảng Quản trị viên"
         >
           <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></div>
           <span className="font-bold text-xs tracking-tight text-white">LoopShop</span>
@@ -387,6 +394,46 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2 pointer-events-auto">
+          {/* Admin & Seller controls on PC */}
+          {isAdminLoggedIn ? (
+            <>
+              <button
+                onClick={() => setCurrentTab(currentTab === 'seller' ? 'feed' : 'seller')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs shadow-xl transition-all cursor-pointer ${
+                  currentTab === 'seller'
+                    ? 'bg-orange-500 text-black font-bold border-orange-400 scale-105'
+                    : 'bg-neutral-900/90 backdrop-blur-md border-neutral-800 text-neutral-300 hover:text-white'
+                }`}
+                title="Đăng tải video & sản phẩm mới"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Người Bán</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentTab(currentTab === 'admin' ? 'feed' : 'admin')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs shadow-xl transition-all cursor-pointer ${
+                  currentTab === 'admin'
+                    ? 'bg-rose-500 text-white font-bold border-rose-400 scale-105'
+                    : 'bg-neutral-900/90 backdrop-blur-md border-rose-500/40 text-rose-300 hover:text-rose-200'
+                }`}
+                title="Bảng điều khiển Quản trị viên"
+              >
+                <ShieldCheck className="w-4 h-4 text-rose-400" />
+                <span>Admin Phát</span>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setIsAdminLoginOpen(true)}
+              className="flex items-center space-x-1.5 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-rose-500/40 text-xs text-rose-300 hover:text-white hover:bg-rose-500/20 shadow-xl transition-all cursor-pointer"
+              title="Đăng nhập Quản trị viên"
+            >
+              <ShieldCheck className="w-4 h-4 text-rose-400" />
+              <span>Admin Phát</span>
+            </button>
+          )}
+
           {/* Chat Center button on desktop */}
           <button
             onClick={() => {
@@ -512,14 +559,21 @@ export const App: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Top Mobile Brand with Long-Press Secret Gate */}
+                  {/* Top Mobile Brand with 1-Click & Long-Press Secret Gate */}
                   <div 
+                    onClick={() => {
+                      if (!isAdminLoggedIn) {
+                        setIsAdminLoginOpen(true);
+                      } else {
+                        setCurrentTab('admin');
+                      }
+                    }}
                     onMouseDown={handleLogoPressStart}
                     onMouseUp={handleLogoPressEnd}
                     onTouchStart={handleLogoPressStart}
                     onTouchEnd={handleLogoPressEnd}
                     className="absolute top-4 left-4 z-30 select-none cursor-pointer flex items-center space-x-1.5 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 active:scale-95 transition-all"
-                    title="Nhấn giữ 2 giây để mở Admin"
+                    title="Bấm hoặc nhấn giữ để mở Admin"
                   >
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
                     <span className="text-xs font-extrabold tracking-tight text-white">LoopShop</span>

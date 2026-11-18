@@ -648,11 +648,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const handleToggleHide = async (videoId: number) => {
     try {
-      await api.toggleVideoHidden(videoId);
+      const res = await api.toggleVideoHidden(videoId);
       await loadAdminData();
-    } catch (err) {
+      setVideoToastMessage({
+        type: 'success',
+        text: res.is_hidden 
+          ? 'Đã ẩn video khỏi feed người xem!' 
+          : '🎉 ĐÃ BỎ ẨN THÀNH CÔNG! Video đã xuất hiện lại trên feed người xem.'
+      });
+      setTimeout(() => setVideoToastMessage(null), 5000);
+    } catch (err: any) {
       console.error(err);
-      alert('Không thể cập nhật trạng thái ẩn video!');
+      setVideoToastMessage({
+        type: 'error',
+        text: err?.message || 'Không thể cập nhật trạng thái ẩn video!'
+      });
+      setTimeout(() => setVideoToastMessage(null), 5000);
     }
   };
 
@@ -660,10 +671,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     try {
       await api.resolveReport(reportId);
       await loadAdminData();
-      alert('Đã ẩn video vi phạm và hoàn tất xử lý báo cáo!');
+      setVideoToastMessage({
+        type: 'success',
+        text: 'Đã ẩn video vi phạm và hoàn tất xử lý báo cáo!'
+      });
+      setTimeout(() => setVideoToastMessage(null), 5000);
     } catch (err) {
       console.error(err);
       alert('Thao tác thất bại!');
+    }
+  };
+
+  const handleUnhideReport = async (reportId: number) => {
+    try {
+      await api.unhideReportVideo(reportId);
+      await loadAdminData();
+      setVideoToastMessage({
+        type: 'success',
+        text: '🎉 Đã bỏ ẩn video vi phạm thành công! Video đã xuất hiện lại trên feed.'
+      });
+      setTimeout(() => setVideoToastMessage(null), 5000);
+    } catch (err) {
+      console.error(err);
+      alert('Không thể bỏ ẩn video!');
     }
   };
 
@@ -1528,6 +1558,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                         >
                           <EyeOff className="w-3.5 h-3.5" />
                           <span>Ẩn video ngay lập tức</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {rep.status === 'resolved' && (
+                      <div className="flex items-center justify-between pt-2 border-t border-neutral-800">
+                        <span className="text-[11px] text-rose-400 flex items-center space-x-1">
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Video này đang bị ẩn khỏi feed</span>
+                        </span>
+                        <button
+                          onClick={() => handleUnhideReport(rep.id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center space-x-1.5 transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Bỏ ẩn & Khôi phục video</span>
                         </button>
                       </div>
                     )}

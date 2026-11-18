@@ -224,8 +224,10 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchFeedVideos();
-  }, []);
+    if (currentTab === 'feed') {
+      fetchFeedVideos();
+    }
+  }, [currentTab]);
 
   // Keyboard navigation for video feed (Arrow Up / Down)
   useEffect(() => {

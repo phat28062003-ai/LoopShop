@@ -77,7 +77,7 @@ export const api = {
   },
 
   async toggleVideoHidden(id: number): Promise<{ is_hidden: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/videos/${id}/toggle_hidden/`, {
+    const res = await fetch(`${API_BASE}/videos/${id}/toggle_hidden/?admin=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -94,7 +94,7 @@ export const api = {
     category?: string;
     product_id?: number;
   }): Promise<VideoItem> {
-    const res = await fetch(`${API_BASE}/videos/`, {
+    const res = await fetch(`${API_BASE}/videos/?admin=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -104,7 +104,7 @@ export const api = {
   },
 
   async updateVideo(id: number, data: Partial<VideoItem> & { product_id?: number }): Promise<VideoItem> {
-    const res = await fetch(`${API_BASE}/videos/${id}/`, {
+    const res = await fetch(`${API_BASE}/videos/${id}/?admin=true`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -114,7 +114,7 @@ export const api = {
   },
 
   async deleteVideo(id: number): Promise<{ success: boolean; message: string }> {
-    const res = await fetch(`${API_BASE}/videos/${id}/`, {
+    const res = await fetch(`${API_BASE}/videos/${id}/?admin=true`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Không thể xóa video');
@@ -293,6 +293,15 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) throw new Error('Không thể xử lý báo cáo');
+    return res.json();
+  },
+
+  async unhideReportVideo(id: number): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE}/reports/${id}/unhide_video/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error('Không thể bỏ ẩn video từ báo cáo');
     return res.json();
   },
 

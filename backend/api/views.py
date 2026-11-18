@@ -36,7 +36,10 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Video.objects.all().order_by('-created_at')
         is_admin_mode = self.request.query_params.get('admin', 'false').lower() == 'true'
-        if not is_admin_mode:
+
+        # Chỉ ẩn video khi người dùng xem danh sách feed công khai (action == 'list' và không phải admin)
+        # Các thao tác cụ thể (retrieve, update, partial_update, destroy, toggle_hidden) vẫn truy cập được để Admin sửa / bỏ ẩn
+        if (self.action == 'list' or not self.action) and not is_admin_mode:
             qs = qs.filter(is_approved=True, is_hidden=False)
 
         category = self.request.query_params.get('category', '').strip()
@@ -72,13 +75,17 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def toggle_hidden(self, request, pk=None):
         """Admin bật/tắt ẩn video ngay lập tức"""
-        video = self.get_object()
+        try:
+            video = Video.objects.get(pk=pk)
+        except Video.DoesNotExist:
+            return Response({'error': 'Video không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+
         video.is_hidden = not video.is_hidden
         video.save(update_fields=['is_hidden'])
         return Response({
             'id': video.id,
             'is_hidden': video.is_hidden,
-            'message': 'Đã ẩn video khỏi feed' if video.is_hidden else 'Đã bỏ ẩn video'
+            'message': 'Đã ẩn video khỏi feed' if video.is_hidden else 'Đã bỏ ẩn video thành công, video đã hiển thị lại trên feed!'
         })
 
     @action(detail=True, methods=['post'])
@@ -326,6 +333,23 @@ class ReportViewSet(viewsets.ModelViewSet):
         report.status = 'dismissed'
         report.save(update_fields=['status'])
         return Response({'report_id': report.id, 'status': 'dismissed', 'message': 'Đã bỏ qua báo cáo'})
+
+    @action(detail=True, methods=['post'])
+    def unhide_video(self, request, pk=None):
+        """Admin bỏ ẩn video từ báo cáo vi phạm"""
+        report = self.get_object()
+        video = report.video
+        if video:
+            video.is_hidden = False
+            video.save(update_fields=['is_hidden'])
+        report.status = 'dismissed'
+        report.save(update_fields=['status'])
+        return Response({
+            'report_id': report.id,
+            'video_id': video.id if video else None,
+            'video_hidden': False,
+            'message': 'Đã bỏ ẩn video và khôi phục hiển thị lên feed thành công!'
+        })
 
 
 class VoucherViewSet(viewsets.ModelViewSet):

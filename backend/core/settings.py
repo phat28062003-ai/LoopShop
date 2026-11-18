@@ -106,6 +106,10 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Video & Media Upload Limits (Hỗ trợ tải video độ nét cao lên tới 250MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 250 * 1024 * 1024  # 250 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 250 * 1024 * 1024  # 250 MB
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings - Allow all origins for seamless frontend communication

@@ -105,14 +105,25 @@ export const api = {
     return res.json();
   },
 
-  async uploadVideoFile(file: File): Promise<{ video_url: string; relative_url: string; message: string }> {
+  async uploadVideoFile(file: File): Promise<{ video_url: string; relative_url: string; message: string; filename?: string; size?: number }> {
     const formData = new FormData();
     formData.append('video', file);
     const res = await fetch(`${API_BASE}/videos/upload_file/`, {
       method: 'POST',
       body: formData,
     });
-    if (!res.ok) throw new Error('Không thể tải lên video');
+    if (!res.ok) {
+      let errMsg = 'Không thể tải lên file video';
+      try {
+        const errJson = await res.json();
+        errMsg = errJson.error || errJson.message || errMsg;
+      } catch {
+        if (res.status === 413) {
+          errMsg = 'File video vượt quá giới hạn dung lượng!';
+        }
+      }
+      throw new Error(errMsg);
+    }
     return res.json();
   },
 

@@ -68,6 +68,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [isSubmittingVideo, setIsSubmittingVideo] = useState<boolean>(false);
   const [isUploadingVideoFile, setIsUploadingVideoFile] = useState<boolean>(false);
   const [videoToastMessage, setVideoToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [modalUploadStatus, setModalUploadStatus] = useState<{
+    status: 'idle' | 'uploading' | 'success' | 'error';
+    filename?: string;
+    sizeFormatted?: string;
+    message?: string;
+  }>({ status: 'idle' });
   const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   // Video Form Fields
@@ -250,6 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setFormLikesCount(168);
     setFormSharesCount(28);
     setFormIsHidden(false);
+    setModalUploadStatus({ status: 'idle' });
     setIsVideoModalOpen(true);
   };
 
@@ -269,21 +276,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setFormLikesCount(v.likes_count || 0);
     setFormSharesCount(v.shares_count || 0);
     setFormIsHidden(v.is_hidden || false);
+    setModalUploadStatus({ status: 'idle' });
     setIsVideoModalOpen(true);
   };
 
   const handleUploadVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Reset input để có thể chọn lại cùng một file nếu cần
+    e.target.value = '';
+
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    setModalUploadStatus({
+      status: 'uploading',
+      filename: file.name,
+      sizeFormatted: `${sizeMB} MB`,
+      message: `Đang tải lên file "${file.name}" (${sizeMB} MB)... Vui lòng đợi trong giây lát.`,
+    });
+
+    // Tự động điền tiêu đề từ tên file nếu chưa có
+    if (!formTitle.trim()) {
+      const cleanTitle = file.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[_-]+/g, ' ')
+        .trim();
+      if (cleanTitle) {
+        setFormTitle(cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1));
+      }
+    }
+
     try {
       setIsUploadingVideoFile(true);
       const res = await api.uploadVideoFile(file);
-      setFormVideoUrl(res.video_url);
+      const targetUrl = res.relative_url || res.video_url;
+      setFormVideoUrl(targetUrl);
+      setModalUploadStatus({
+        status: 'success',
+        filename: file.name,
+        sizeFormatted: `${sizeMB} MB`,
+        message: `Đã tải tệp video lên máy chủ thành công! Hãy kiểm tra thông tin và bấm nút "Đăng Video Mới" bên dưới để đưa lên feed.`,
+      });
       setVideoToastMessage({ type: 'success', text: `Tải lên file video "${file.name}" thành công!` });
-      setTimeout(() => setVideoToastMessage(null), 4000);
-    } catch {
-      setVideoToastMessage({ type: 'error', text: 'Tải file video thất bại. Bạn có thể dán link URL trực tiếp.' });
-      setTimeout(() => setVideoToastMessage(null), 4000);
+      setTimeout(() => setVideoToastMessage(null), 5000);
+    } catch (err: any) {
+      console.error(err);
+      const errMsg = err?.message || 'Không thể tải file video lên máy chủ. Bạn có thể dán link URL trực tiếp.';
+      setModalUploadStatus({
+        status: 'error',
+        filename: file.name,
+        message: errMsg,
+      });
+      setVideoToastMessage({ type: 'error', text: errMsg });
+      setTimeout(() => setVideoToastMessage(null), 5000);
     } finally {
       setIsUploadingVideoFile(false);
     }
@@ -1870,21 +1915,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     type="button"
                     onClick={() => videoFileInputRef.current?.click()}
                     disabled={isUploadingVideoFile}
-                    className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sky-400 text-[11px] font-semibold flex items-center space-x-1 border border-neutral-700 transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 text-xs font-semibold flex items-center space-x-1.5 border border-sky-500/30 transition-all cursor-pointer disabled:opacity-50 shadow-sm"
                   >
                     {isUploadingVideoFile ? (
                       <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Đang tải lên...</span>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Đang tải lên server...</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="w-3 h-3" />
-                        <span>Tải file từ máy</span>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Tải file từ máy / điện thoại</span>
                       </>
                     )}
                   </button>
                 </div>
+
+                {/* Upload Status Feedback Banner in Modal */}
+                {modalUploadStatus.status === 'uploading' && (
+                  <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-500/30 text-sky-300 text-xs flex items-center space-x-2.5 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-sky-400" />
+                    <span className="leading-relaxed">{modalUploadStatus.message}</span>
+                  </div>
+                )}
+
+                {modalUploadStatus.status === 'success' && (
+                  <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs space-y-1 animate-in fade-in-50 duration-200">
+                    <div className="flex items-center space-x-2 font-bold text-white">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      <span>{modalUploadStatus.filename} ({modalUploadStatus.sizeFormatted})</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-200/90 leading-relaxed">
+                      ✅ File video đã tải lên máy chủ thành công! Hãy kiểm tra Tiêu đề & Sản phẩm rồi bấm nút <b>"🚀 Đăng Video Mới Lên Feed"</b> ở cuối bảng để hoàn tất.
+                    </p>
+                  </div>
+                )}
+
+                {modalUploadStatus.status === 'error' && (
+                  <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2 animate-in fade-in-50 duration-200">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <span className="font-bold">Lỗi tải video: </span>
+                      <span>{modalUploadStatus.message}</span>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <input

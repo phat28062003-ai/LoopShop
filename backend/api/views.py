@@ -136,17 +136,22 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         if not video_file:
             return Response({'error': 'Vui lòng chọn file video hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Đảm bảo thư mục media/videos tồn tại
+        media_videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
+        os.makedirs(media_videos_dir, exist_ok=True)
+
         # Tạo tên file ngẫu nhiên an toàn
         ext = os.path.splitext(video_file.name)[1].lower() or '.mp4'
         filename = f"videos/{uuid.uuid4().hex}{ext}"
-        saved_path = default_storage.save(filename, ContentFile(video_file.read()))
+        saved_path = default_storage.save(filename, video_file)
         file_url = f"{settings.MEDIA_URL}{saved_path}"
 
-        # Trả về full URL
+        # Trả về cả relative URL (cho frontend chạy qua proxy) và full URL
         full_url = request.build_absolute_uri(file_url)
         return Response({
-            'video_url': full_url,
+            'video_url': file_url,
             'relative_url': file_url,
+            'full_url': full_url,
             'filename': video_file.name,
             'size': video_file.size,
             'message': 'Tải video lên thành công!'

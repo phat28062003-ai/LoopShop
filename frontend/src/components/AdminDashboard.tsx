@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldAlert, 
   TrendingUp, 
@@ -25,9 +25,18 @@ import {
   Copy,
   Search,
   ExternalLink,
-  Download
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  Upload,
+  X,
+  Tag,
+  Film,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
-import type { AdminStats, VideoItem, Report, Order, CRMResponse } from '../types';
+import type { AdminStats, VideoItem, Report, Order, CRMResponse, Product } from '../types';
 import { api } from '../services/api';
 
 interface AdminDashboardProps {
@@ -37,6 +46,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [crmData, setCrmData] = useState<CRMResponse | null>(null);
@@ -48,6 +58,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [customerTierFilter, setCustomerTierFilter] = useState<'all' | 'vip' | 'regular' | 'lead'>('all');
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  // Video Management state
+  const [videoSearch, setVideoSearch] = useState<string>('');
+  const [videoFilter, setVideoFilter] = useState<'all' | 'visible' | 'hidden'>('all');
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState<boolean>(false);
+  const [editingVideo, setEditingVideo] = useState<VideoItem | null>(null);
+  const [deletingVideo, setDeletingVideo] = useState<VideoItem | null>(null);
+  const [isSubmittingVideo, setIsSubmittingVideo] = useState<boolean>(false);
+  const [isUploadingVideoFile, setIsUploadingVideoFile] = useState<boolean>(false);
+  const [videoToastMessage, setVideoToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Video Form Fields
+  const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formCategory, setFormCategory] = useState('tech');
+  const [formVideoUrl, setFormVideoUrl] = useState('');
+  const [formThumbnailUrl, setFormThumbnailUrl] = useState('');
+  const [formUploaderName, setFormUploaderName] = useState('phat_official');
+  const [formSelectedProductId, setFormSelectedProductId] = useState<number | ''>('');
+  const [formLikesCount, setFormLikesCount] = useState<number>(150);
+  const [formSharesCount, setFormSharesCount] = useState<number>(25);
+  const [formIsHidden, setFormIsHidden] = useState<boolean>(false);
+
+  // Sample videos for quick testing
+  const sampleVideos = [
+    { label: 'Bình giữ nhiệt (Công nghệ)', url: '/videos/v1.mp4' },
+    { label: 'Áo thun phong cách (Thời trang)', url: '/videos/v2.mp4' },
+    { label: 'Tai nghe Bluetooth ANC', url: '/videos/v3.mp4' },
+    { label: 'Đèn ngủ hoàng hôn LED', url: '/videos/v4.mp4' },
+    { label: 'Bàn phím cơ không dây', url: '/videos/v5.mp4' },
+    { label: 'Balo du lịch chống nước', url: '/videos/v6.mp4' },
+    { label: 'Nồi chiên không dầu 6L', url: '/videos/v7.mp4' },
+    { label: 'Máy sấy tóc ion âm cao cấp', url: '/videos/v8.mp4' },
+  ];
 
   // Telegram state
   const [telegramToken, setTelegramToken] = useState<string>(() => localStorage.getItem('loopshop_telegram_token') || '');
@@ -154,12 +199,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const loadAdminData = async () => {
     try {
       setIsLoading(true);
-      const [statsData, videosData, reportsData, ordersData, crmResult] = await Promise.all([
+      const [statsData, videosData, reportsData, ordersData, crmResult, prodsData] = await Promise.all([
         api.getAdminStats(),
         api.getVideos(true), // get all videos including hidden
         api.getReports(),
         api.getOrders(),
         api.getAdminCustomers().catch(() => null),
+        api.getProducts().catch(() => []),
       ]);
       setStats(statsData);
       setVideos(videosData);
@@ -167,6 +213,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setOrders(ordersData);
       if (crmResult) {
         setCrmData(crmResult);
+      }
+      if (prodsData) {
+        setProducts(prodsData);
       }
 
       // Load telegram config
@@ -185,6 +234,135 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Video CRUD Handlers
+  const handleOpenAddVideo = () => {
+    setEditingVideo(null);
+    setFormTitle('');
+    setFormDescription('');
+    setFormCategory('tech');
+    setFormVideoUrl('/videos/v1.mp4');
+    setFormThumbnailUrl('');
+    setFormUploaderName('phat_official');
+    setFormSelectedProductId(products.length > 0 ? products[0].id : '');
+    setFormLikesCount(168);
+    setFormSharesCount(28);
+    setFormIsHidden(false);
+    setIsVideoModalOpen(true);
+  };
+
+  const handleOpenEditVideo = (v: VideoItem) => {
+    setEditingVideo(v);
+    setFormTitle(v.title);
+    setFormDescription(v.description || '');
+    setFormCategory(v.category || 'tech');
+    setFormVideoUrl(v.video_url);
+    setFormThumbnailUrl(v.thumbnail_url || '');
+    setFormUploaderName(v.uploader_name || 'phat_official');
+    if (v.products && v.products.length > 0) {
+      setFormSelectedProductId(v.products[0].id);
+    } else {
+      setFormSelectedProductId('');
+    }
+    setFormLikesCount(v.likes_count || 0);
+    setFormSharesCount(v.shares_count || 0);
+    setFormIsHidden(v.is_hidden || false);
+    setIsVideoModalOpen(true);
+  };
+
+  const handleUploadVideoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingVideoFile(true);
+      const res = await api.uploadVideoFile(file);
+      setFormVideoUrl(res.video_url);
+      setVideoToastMessage({ type: 'success', text: `Tải lên file video "${file.name}" thành công!` });
+      setTimeout(() => setVideoToastMessage(null), 4000);
+    } catch {
+      setVideoToastMessage({ type: 'error', text: 'Tải file video thất bại. Bạn có thể dán link URL trực tiếp.' });
+      setTimeout(() => setVideoToastMessage(null), 4000);
+    } finally {
+      setIsUploadingVideoFile(false);
+    }
+  };
+
+  const handleSaveVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) {
+      alert('Vui lòng nhập tiêu đề cho video!');
+      return;
+    }
+    if (!formVideoUrl.trim()) {
+      alert('Vui lòng nhập đường dẫn video hoặc tải file MP4 lên!');
+      return;
+    }
+
+    try {
+      setIsSubmittingVideo(true);
+      const selectedProd = products.find(p => p.id === Number(formSelectedProductId));
+      const thumb = formThumbnailUrl.trim() || selectedProd?.image_url || '';
+
+      if (editingVideo) {
+        // Cập nhật video hiện có
+        await api.updateVideo(editingVideo.id, {
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          category: formCategory,
+          video_url: formVideoUrl.trim(),
+          thumbnail_url: thumb,
+          uploader_name: formUploaderName.trim() || 'phat_official',
+          likes_count: Number(formLikesCount) || 0,
+          shares_count: Number(formSharesCount) || 0,
+          is_hidden: formIsHidden,
+          product_id: formSelectedProductId ? Number(formSelectedProductId) : undefined,
+        });
+        setVideoToastMessage({ type: 'success', text: `Đã cập nhật video "${formTitle}" thành công!` });
+      } else {
+        // Thêm video mới
+        const created = await api.createVideo({
+          title: formTitle.trim(),
+          description: formDescription.trim(),
+          category: formCategory,
+          video_url: formVideoUrl.trim(),
+          thumbnail_url: thumb,
+          uploader_name: formUploaderName.trim() || 'phat_official',
+          product_id: formSelectedProductId ? Number(formSelectedProductId) : undefined,
+        });
+        if (formSelectedProductId) {
+          await api.attachProductToVideo(created.id, Number(formSelectedProductId)).catch(() => null);
+        }
+        setVideoToastMessage({ type: 'success', text: `Đã thêm video mới "${formTitle}" vào hệ thống feed!` });
+      }
+
+      setIsVideoModalOpen(false);
+      setEditingVideo(null);
+      await loadAdminData();
+      setTimeout(() => setVideoToastMessage(null), 5000);
+    } catch (err) {
+      console.error(err);
+      alert('Thao tác video thất bại, vui lòng kiểm tra lại!');
+    } finally {
+      setIsSubmittingVideo(false);
+    }
+  };
+
+  const handleConfirmDeleteVideo = async () => {
+    if (!deletingVideo) return;
+    try {
+      setIsSubmittingVideo(true);
+      await api.deleteVideo(deletingVideo.id);
+      setVideoToastMessage({ type: 'success', text: `Đã xóa vĩnh viễn video "${deletingVideo.title}" khỏi hệ thống!` });
+      setDeletingVideo(null);
+      await loadAdminData();
+      setTimeout(() => setVideoToastMessage(null), 5000);
+    } catch (err) {
+      console.error(err);
+      alert('Không thể xóa video, vui lòng thử lại!');
+    } finally {
+      setIsSubmittingVideo(false);
     }
   };
 
@@ -1182,86 +1360,284 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
         {activeTab === 'videos' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-neutral-200">
-                Toàn bộ Video trên hệ thống ({videos.length})
-              </h2>
-              <span className="text-xs text-neutral-400">Bật/tắt công tắc để ẩn hoặc hiện tức thì</span>
+            {/* Header + Add Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-neutral-800 gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-neutral-200 flex items-center space-x-2">
+                  <Film className="w-4 h-4 text-rose-500" />
+                  <span>Quản lý Toàn bộ Video ({videos.length})</span>
+                </h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Thêm mới video từ máy/TikTok, chỉnh sửa tiêu đề & sản phẩm gắn kèm, hoặc xóa vĩnh viễn
+                </p>
+              </div>
+
+              <button
+                onClick={handleOpenAddVideo}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 active:scale-95 transition-all cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm Video Mới</span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {videos.map((v) => (
-                <div
-                  key={v.id}
-                  className={`p-3.5 rounded-2xl border transition-all ${
-                    v.is_hidden
-                      ? 'bg-neutral-900/50 border-rose-900/60 opacity-75'
-                      : 'bg-neutral-900 border-neutral-800'
+            {/* Video Action Toast */}
+            {videoToastMessage && (
+              <div className={`p-3 rounded-xl text-xs font-medium flex items-center justify-between animate-in fade-in-50 duration-200 ${
+                videoToastMessage.type === 'success' 
+                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                  : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  {videoToastMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+                  <span>{videoToastMessage.text}</span>
+                </div>
+                <button 
+                  onClick={() => setVideoToastMessage(null)} 
+                  className="text-neutral-400 hover:text-white ml-2 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Search & Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm video theo tiêu đề, người đăng, sản phẩm..."
+                  value={videoSearch}
+                  onChange={(e) => setVideoSearch(e.target.value)}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center space-x-1.5 bg-neutral-900 p-1 rounded-xl border border-neutral-800 text-xs">
+                <button
+                  onClick={() => setVideoFilter('all')}
+                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    videoFilter === 'all'
+                      ? 'bg-rose-600 text-white font-bold shadow'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  <div className="flex space-x-3">
-                    <div className="w-20 h-28 rounded-xl overflow-hidden bg-black flex-shrink-0 relative">
-                      <video
-                        src={v.video_url}
-                        className="w-full h-full object-cover"
-                        muted
-                      />
-                      {v.is_hidden && (
-                        <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                          <EyeOff className="w-5 h-5 text-rose-400" />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 flex flex-col justify-between min-w-0">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-neutral-400">@{v.uploader_name}</span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            v.is_hidden
-                              ? 'bg-rose-500/20 text-rose-400'
-                              : 'bg-emerald-500/20 text-emerald-400'
-                          }`}>
-                            {v.is_hidden ? 'Đang ẩn' : 'Đang hiện'}
-                          </span>
-                        </div>
-
-                        <h4 className="text-xs font-semibold text-white mt-1 line-clamp-2">
-                          {v.title}
-                        </h4>
-                      </div>
-
-                      <div className="pt-2 flex items-center justify-between">
-                        <span className="text-[11px] text-neutral-400">
-                          {v.likes_count} ❤️ • {v.products?.length || 0} SP gắn
-                        </span>
-
-                        <button
-                          onClick={() => handleToggleHide(v.id)}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-colors ${
-                            v.is_hidden
-                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                              : 'bg-rose-600 hover:bg-rose-500 text-white'
-                          }`}
-                        >
-                          {v.is_hidden ? (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              <span>Bỏ ẩn</span>
-                            </>
-                          ) : (
-                            <>
-                              <EyeOff className="w-3 h-3" />
-                              <span>Ẩn video</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  Tất cả ({videos.length})
+                </button>
+                <button
+                  onClick={() => setVideoFilter('visible')}
+                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    videoFilter === 'visible'
+                      ? 'bg-emerald-600 text-white font-bold shadow'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Đang hiện ({videos.filter(v => !v.is_hidden).length})
+                </button>
+                <button
+                  onClick={() => setVideoFilter('hidden')}
+                  className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    videoFilter === 'hidden'
+                      ? 'bg-rose-950 text-rose-300 font-bold border border-rose-800/60 shadow'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Đang ẩn ({videos.filter(v => v.is_hidden).length})
+                </button>
+              </div>
             </div>
+
+            {/* Video Cards Grid */}
+            {(() => {
+              const filteredVideos = videos.filter((v) => {
+                if (videoSearch.trim()) {
+                  const q = videoSearch.toLowerCase();
+                  const matchTitle = v.title.toLowerCase().includes(q);
+                  const matchDesc = (v.description || '').toLowerCase().includes(q);
+                  const matchUploader = (v.uploader_name || '').toLowerCase().includes(q);
+                  const matchProd = v.products?.some(p => p.title.toLowerCase().includes(q));
+                  if (!matchTitle && !matchDesc && !matchUploader && !matchProd) return false;
+                }
+                if (videoFilter === 'visible' && v.is_hidden) return false;
+                if (videoFilter === 'hidden' && !v.is_hidden) return false;
+                return true;
+              });
+
+              if (filteredVideos.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-neutral-900/50 rounded-2xl border border-neutral-800 space-y-3">
+                    <Film className="w-10 h-10 text-neutral-600 mx-auto" />
+                    <p className="text-sm font-semibold text-neutral-400">Không tìm thấy video nào</p>
+                    <p className="text-xs text-neutral-500">
+                      Thử đổi bộ lọc hoặc bấm "Thêm Video Mới" để tạo video đầu tiên
+                    </p>
+                    <button
+                      onClick={handleOpenAddVideo}
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold inline-flex items-center space-x-1.5 transition-all shadow"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm Video Ngay</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {filteredVideos.map((v) => {
+                    const attachedProd = v.products && v.products.length > 0 ? v.products[0] : null;
+                    const categoryLabel = 
+                      v.category === 'tech' ? 'Công nghệ ⚡' :
+                      v.category === 'fashion' ? 'Thời trang 👕' :
+                      v.category === 'lifestyle' ? 'Đời sống 🏠' :
+                      v.category === 'food' ? 'Ẩm thực 🍔' :
+                      v.category === 'beauty' ? 'Làm đẹp 💄' : 'Tất cả';
+
+                    return (
+                      <div
+                        key={v.id}
+                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                          v.is_hidden
+                            ? 'bg-neutral-900/50 border-rose-900/60 opacity-80'
+                            : 'bg-neutral-900 border-neutral-800 hover:border-neutral-700/80'
+                        }`}
+                      >
+                        <div className="flex space-x-3">
+                          {/* 9:16 Video Thumbnail */}
+                          <div className="w-24 h-36 rounded-xl overflow-hidden bg-black flex-shrink-0 relative border border-neutral-800">
+                            <video
+                              src={v.video_url}
+                              className="w-full h-full object-cover"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                            {v.is_hidden && (
+                              <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center p-1 text-center">
+                                <EyeOff className="w-5 h-5 text-rose-400 mb-1" />
+                                <span className="text-[9px] text-rose-300 font-bold">Đã ẩn</span>
+                              </div>
+                            )}
+                            <div className="absolute bottom-1 right-1 bg-black/70 px-1 py-0.5 rounded text-[9px] font-mono text-neutral-300">
+                              #{v.id}
+                            </div>
+                          </div>
+
+                          {/* Info Column */}
+                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[10px] text-neutral-400 truncate">@{v.uploader_name}</span>
+                                <div className="flex items-center space-x-1">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300 font-medium">
+                                    {categoryLabel}
+                                  </span>
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                    v.is_hidden
+                                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  }`}>
+                                    {v.is_hidden ? 'Đang ẩn' : 'Đang hiện'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug" title={v.title}>
+                                {v.title}
+                              </h4>
+
+                              {v.description && (
+                                <p className="text-[11px] text-neutral-400 line-clamp-1">
+                                  {v.description}
+                                </p>
+                              )}
+
+                              {/* Attached Product Box */}
+                              {attachedProd ? (
+                                <div className="flex items-center space-x-2 p-1.5 rounded-xl bg-neutral-950 border border-neutral-800/80 mt-1">
+                                  <img 
+                                    src={attachedProd.image_url} 
+                                    alt="" 
+                                    className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100'; }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold text-neutral-200 truncate">
+                                      {attachedProd.title}
+                                    </p>
+                                    <p className="text-[10px] font-extrabold text-amber-400 font-mono">
+                                      {Number(attachedProd.price).toLocaleString('vi-VN')}₫
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-1 rounded-lg bg-neutral-950/60 border border-neutral-800/60 text-[10px] text-neutral-500 flex items-center space-x-1">
+                                  <Tag className="w-3 h-3 text-neutral-600" />
+                                  <span>Chưa gắn sản phẩm</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Engagement stats */}
+                            <div className="pt-2 text-[10px] text-neutral-400 flex items-center space-x-3">
+                              <span>❤️ {v.likes_count}</span>
+                              <span>💬 {v.comments_count}</span>
+                              <span>↗️ {v.shares_count}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons: Edit, Toggle Hide, Delete */}
+                        <div className="pt-3 mt-3 border-t border-neutral-800/80 flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => handleToggleHide(v.id)}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer ${
+                              v.is_hidden
+                                ? 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700'
+                            }`}
+                            title={v.is_hidden ? 'Hiện video lên feed' : 'Ẩn video khỏi feed'}
+                          >
+                            {v.is_hidden ? (
+                              <>
+                                <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Bỏ ẩn</span>
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5 text-neutral-400" />
+                                <span>Ẩn video</span>
+                              </>
+                            )}
+                          </button>
+
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleOpenEditVideo(v)}
+                              className="px-3 py-1.5 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer"
+                              title="Chỉnh sửa thông tin video & sản phẩm"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Sửa</span>
+                            </button>
+
+                            <button
+                              onClick={() => setDeletingVideo(v)}
+                              className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95 cursor-pointer"
+                              title="Xóa vĩnh viễn video khỏi cơ sở dữ liệu"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1379,6 +1755,370 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
           </div>
         )}
       </div>
+
+      {/* ================= MODAL: THÊM / SỬA VIDEO ================= */}
+      {isVideoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-5 md:p-6 shadow-2xl space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  {editingVideo ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editingVideo ? `Chỉnh Sửa Video #${editingVideo.id}` : 'Thêm Video Mới Vào Feed'}
+                  </h3>
+                  <p className="text-[11px] text-neutral-400">
+                    {editingVideo ? 'Cập nhật nội dung, liên kết sản phẩm hoặc thay đổi trạng thái' : 'Đăng tải video ngắn mới kèm sản phẩm bán hàng trực tiếp'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsVideoModalOpen(false)}
+                className="p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveVideo} className="space-y-4 text-xs">
+              {/* Tiêu đề */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Tiêu đề video <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Đập hộp bình giữ nhiệt thông minh hiển thị nhiệt độ..."
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                  required
+                />
+              </div>
+
+              {/* Mô tả */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1">
+                  Mô tả / Hashtag
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Mô tả trải nghiệm, công năng sản phẩm hoặc hashtag (#loopshop #deal)..."
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors resize-none"
+                />
+              </div>
+
+              {/* Thể loại & Người đăng */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Thể loại video
+                  </label>
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500 transition-colors cursor-pointer"
+                  >
+                    <option value="tech">⚡ Công nghệ</option>
+                    <option value="fashion">👕 Thời trang</option>
+                    <option value="lifestyle">🏠 Đời sống</option>
+                    <option value="food">🍔 Ẩm thực</option>
+                    <option value="beauty">💄 Làm đẹp</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Kênh / Người đăng
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="phat_official"
+                    value={formUploaderName}
+                    onChange={(e) => setFormUploaderName(e.target.value)}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Nguồn Video: Upload file hoặc Dán Link */}
+              <div className="p-3.5 bg-neutral-950/80 rounded-2xl border border-neutral-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-neutral-300 font-semibold flex items-center space-x-1.5">
+                    <Film className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Nguồn tệp Video (MP4)</span>
+                    <span className="text-rose-400">*</span>
+                  </label>
+
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    ref={videoFileInputRef}
+                    onChange={handleUploadVideoFile}
+                    accept="video/mp4,video/quicktime,video/webm"
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => videoFileInputRef.current?.click()}
+                    disabled={isUploadingVideoFile}
+                    className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-sky-400 text-[11px] font-semibold flex items-center space-x-1 border border-neutral-700 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isUploadingVideoFile ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Đang tải lên...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3" />
+                        <span>Tải file từ máy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Hoặc dán URL video (ví dụ: /videos/v1.mp4 hoặc https://...)"
+                    value={formVideoUrl}
+                    onChange={(e) => setFormVideoUrl(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono text-[11px] placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+                    required
+                  />
+                </div>
+
+                {/* Quick sample chips */}
+                <div>
+                  <p className="text-[10px] text-neutral-400 mb-1.5">⚡ Hoặc chọn nhanh video chất lượng cao có sẵn:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sampleVideos.map((s, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setFormVideoUrl(s.url)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all ${
+                          formVideoUrl === s.url
+                            ? 'bg-rose-600 text-white font-bold'
+                            : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mini Preview */}
+                {formVideoUrl && (
+                  <div className="flex items-center space-x-3 pt-2 border-t border-neutral-800/80">
+                    <div className="w-16 h-24 rounded-lg overflow-hidden bg-black flex-shrink-0 relative border border-neutral-700">
+                      <video
+                        src={formVideoUrl}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    </div>
+                    <div className="text-[11px] text-neutral-400 space-y-0.5">
+                      <p className="text-emerald-400 font-semibold flex items-center space-x-1">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Video hoạt động tốt</span>
+                      </p>
+                      <p className="font-mono text-[10px] truncate max-w-xs text-neutral-500">
+                        {formVideoUrl}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Gắn sản phẩm đính kèm */}
+              <div>
+                <label className="block text-neutral-300 font-semibold mb-1 flex items-center space-x-1">
+                  <Tag className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Sản phẩm đính kèm vào video (mua sắm tức thì)</span>
+                </label>
+                <select
+                  value={formSelectedProductId}
+                  onChange={(e) => setFormSelectedProductId(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500 transition-colors cursor-pointer"
+                >
+                  <option value="">-- Không gắn sản phẩm nào --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      #{p.id} - {p.title} ({Number(p.price).toLocaleString('vi-VN')}₫) - Kho: {p.stock}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Selected Product Preview */}
+                {formSelectedProductId && (() => {
+                  const p = products.find(prod => prod.id === Number(formSelectedProductId));
+                  if (!p) return null;
+                  return (
+                    <div className="flex items-center space-x-2.5 p-2 rounded-xl bg-neutral-950 border border-neutral-800 mt-2">
+                      <img src={p.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">{p.title}</p>
+                        <p className="text-[11px] font-bold text-amber-400">{Number(p.price).toLocaleString('vi-VN')}₫</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                        Sẵn sàng mua
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Lượt thích & Chia sẻ ảo */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    ❤️ Số lượt thích (Likes)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formLikesCount}
+                    onChange={(e) => setFormLikesCount(Number(e.target.value))}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-rose-500 transition-colors font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    ↗️ Số lượt chia sẻ (Shares)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formSharesCount}
+                    onChange={(e) => setFormSharesCount(Number(e.target.value))}
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-rose-500 transition-colors font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Trạng thái hiển thị */}
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="formIsHidden"
+                  checked={!formIsHidden}
+                  onChange={(e) => setFormIsHidden(!e.target.checked)}
+                  className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 bg-neutral-950 border-neutral-800 cursor-pointer"
+                />
+                <label htmlFor="formIsHidden" className="text-xs text-neutral-300 cursor-pointer font-medium">
+                  Hiển thị video này trên Feed cho người xem ngay sau khi lưu
+                </label>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setIsVideoModalOpen(false)}
+                  disabled={isSubmittingVideo}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingVideo}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingVideo ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{editingVideo ? 'Cập nhật Video' : 'Đăng Video Mới'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: XÁC NHẬN XÓA VIDEO ================= */}
+      {deletingVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-rose-900/60 rounded-3xl w-full max-w-md p-5 md:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Xác nhận xóa video</h3>
+                <p className="text-xs text-neutral-400">Hành động này không thể hoàn tác</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-950 rounded-2xl border border-neutral-800 flex space-x-3 items-center">
+              <div className="w-14 h-20 rounded-xl overflow-hidden bg-black flex-shrink-0">
+                <video src={deletingVideo.video_url} className="w-full h-full object-cover" muted />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-neutral-400">#{deletingVideo.id} • @{deletingVideo.uploader_name}</p>
+                <p className="text-xs font-bold text-white line-clamp-2 mt-0.5">{deletingVideo.title}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-300 leading-relaxed">
+              Bạn có chắc chắn muốn xóa video này? Khi xóa, toàn bộ bình luận, lượt tim và liên kết sản phẩm của video sẽ bị gỡ bỏ vĩnh viễn khỏi hệ thống.
+            </p>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingVideo(null)}
+                disabled={isSubmittingVideo}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeleteVideo}
+                disabled={isSubmittingVideo}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmittingVideo ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xác nhận xóa vĩnh viễn</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

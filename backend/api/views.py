@@ -95,6 +95,38 @@ class VideoFeedViewSet(viewsets.ModelViewSet):
         except Product.DoesNotExist:
             return Response({'error': 'Sản phẩm không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
 
+    def perform_create(self, serializer):
+        video = serializer.save()
+        product_id = self.request.data.get('product_id')
+        if product_id:
+            try:
+                product = Product.objects.get(id=product_id)
+                VideoProductTag.objects.create(video=video, product=product, timestamp=0.0)
+            except Product.DoesNotExist:
+                pass
+
+    def perform_update(self, serializer):
+        video = serializer.save()
+        if 'product_id' in self.request.data:
+            product_id = self.request.data.get('product_id')
+            VideoProductTag.objects.filter(video=video).delete()
+            if product_id:
+                try:
+                    product = Product.objects.get(id=product_id)
+                    VideoProductTag.objects.create(video=video, product=product, timestamp=0.0)
+                except Product.DoesNotExist:
+                    pass
+
+    def perform_destroy(self, instance):
+        if instance.video_url and instance.video_url.startswith(settings.MEDIA_URL):
+            rel_path = instance.video_url.replace(settings.MEDIA_URL, '').lstrip('/')
+            if default_storage.exists(rel_path):
+                try:
+                    default_storage.delete(rel_path)
+                except Exception as e:
+                    print(f"Error deleting video file {rel_path}: {e}")
+        instance.delete()
+
     @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def upload_file(self, request):
         """

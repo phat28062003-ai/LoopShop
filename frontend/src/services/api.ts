@@ -65,6 +65,8 @@ export const api = {
     video_url: string;
     uploader_name: string;
     thumbnail_url?: string;
+    category?: string;
+    product_id?: number;
   }): Promise<VideoItem> {
     const res = await fetch(`${API_BASE}/videos/`, {
       method: 'POST',
@@ -73,6 +75,24 @@ export const api = {
     });
     if (!res.ok) throw new Error('Không thể tạo video');
     return res.json();
+  },
+
+  async updateVideo(id: number, data: Partial<VideoItem> & { product_id?: number }): Promise<VideoItem> {
+    const res = await fetch(`${API_BASE}/videos/${id}/`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Không thể cập nhật video');
+    return res.json();
+  },
+
+  async deleteVideo(id: number): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/videos/${id}/`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Không thể xóa video');
+    return { success: true, message: 'Đã xóa video thành công' };
   },
 
   async attachProductToVideo(videoId: number, productId: number): Promise<VideoItem> {

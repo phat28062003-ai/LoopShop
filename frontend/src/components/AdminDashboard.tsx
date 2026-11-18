@@ -75,6 +75,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     message?: string;
   }>({ status: 'idle' });
   const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const quickUploadInputRef = useRef<HTMLInputElement>(null);
+  const [isQuickUploading, setIsQuickUploading] = useState<boolean>(false);
 
   // Video Form Fields
   const [formTitle, setFormTitle] = useState('');
@@ -408,6 +410,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert('Không thể xóa video, vui lòng thử lại!');
     } finally {
       setIsSubmittingVideo(false);
+    }
+  };
+
+  const handleQuickUploadAndPost = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const cleanTitle = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[_-]+/g, ' ')
+      .trim();
+    const finalTitle = cleanTitle ? (cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1)) : 'Video sản phẩm mới';
+
+    try {
+      setIsQuickUploading(true);
+      setVideoToastMessage({
+        type: 'success',
+        text: `⏳ Đang tải file và đăng ngay video "${finalTitle}" lên Feed...`
+      });
+
+      // 1. Tải file video lên server
+      const uploadRes = await api.uploadVideoFile(file);
+      const videoPath = uploadRes.relative_url || uploadRes.video_url;
+
+      // 2. Gắn sản phẩm mặc định đầu tiên nếu có
+      const defaultProd = products.length > 0 ? products[0] : null;
+
+      // 3. Tạo bài đăng video ngay lập tức
+      const created = await api.createVideo({
+        title: finalTitle,
+        description: 'Video giới thiệu sản phẩm chính hãng LoopShop',
+        category: 'tech',
+        video_url: videoPath,
+        uploader_name: 'phat_official',
+        thumbnail_url: defaultProd?.image_url || '',
+        product_id: defaultProd ? defaultProd.id : undefined,
+      });
+
+      if (defaultProd) {
+        await api.attachProductToVideo(created.id, defaultProd.id).catch(() => null);
+      }
+
+      await loadAdminData();
+      setVideoToastMessage({
+        type: 'success',
+        text: `🎉 ĐÃ ĐĂNG VIDEO THÀNH CÔNG! "${finalTitle}" đã sẵn sàng trên Feed người xem.`
+      });
+      setTimeout(() => setVideoToastMessage(null), 8000);
+    } catch (err: any) {
+      console.error(err);
+      setVideoToastMessage({
+        type: 'error',
+        text: err?.message || 'Tải video lên thất bại, vui lòng thử lại!'
+      });
+      setTimeout(() => setVideoToastMessage(null), 6000);
+    } finally {
+      setIsQuickUploading(false);
     }
   };
 
@@ -1417,13 +1477,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </p>
               </div>
 
-              <button
-                onClick={handleOpenAddVideo}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-rose-600/30 active:scale-95 transition-all cursor-pointer self-start sm:self-auto"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Thêm Video Mới</span>
-              </button>
+              <div className="flex items-center space-x-2 self-start sm:self-auto">
+                {/* 1-Click Fast Upload and Publish Button */}
+                <input
+                  type="file"
+                  ref={quickUploadInputRef}
+                  onChange={handleQuickUploadAndPost}
+                  accept="video/mp4,video/quicktime,video/webm"
+                  className="hidden"
+                />
+
+                <button
+                  onClick={() => quickUploadInputRef.current?.click()}
+                  disabled={isQuickUploading}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                  title="Chọn file video là hệ thống tự động đăng ngay lập tức lên feed"
+                >
+                  {isQuickUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang đăng video...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>⚡ Up File Đăng Luôn</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleOpenAddVideo}
+                  className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center space-x-1.5 border border-neutral-700 active:scale-95 transition-all cursor-pointer"
+                  title="Mở bảng tùy chỉnh chi tiết tiêu đề, sản phẩm gắn kèm"
+                >
+                  <Plus className="w-4 h-4 text-rose-400" />
+                  <span>Tùy chỉnh chi tiết</span>
+                </button>
+              </div>
             </div>
 
             {/* Video Action Toast */}

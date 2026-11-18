@@ -15,6 +15,9 @@ export const SellerStudio: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newPrice, setNewPrice] = useState<number>(189000);
   const [newOriginalPrice, setNewOriginalPrice] = useState<number | ''>(250000);
+  const [newCostPrice, setNewCostPrice] = useState<number | ''>(120000);
+  const [newAffiliateUrl, setNewAffiliateUrl] = useState('');
+  const [newIsDropship, setNewIsDropship] = useState(true);
   const [newCategory, setNewCategory] = useState('tech');
   const [newStock, setNewStock] = useState<number>(100);
   const [newImage, setNewImage] = useState('https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600');
@@ -201,6 +204,9 @@ export const SellerStudio: React.FC = () => {
         category: newCategory,
         price: newPrice,
         original_price: newOriginalPrice ? Number(newOriginalPrice) : undefined,
+        cost_price: newCostPrice ? Number(newCostPrice) : undefined,
+        affiliate_url: newAffiliateUrl.trim(),
+        is_dropship: newIsDropship,
         stock: Number(newStock) || 0,
         seller_name: 'Phát Official Store',
         image_url: newImage.trim() || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600',
@@ -681,6 +687,51 @@ export const SellerStudio: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Dropship & Affiliate config */}
+                <div className="p-2.5 bg-neutral-800/60 rounded-xl border border-neutral-700/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-orange-400">📦 Cấu hình Dropship & Affiliate</span>
+                    <label className="flex items-center space-x-1 cursor-pointer text-[10px] text-neutral-300">
+                      <input
+                        type="checkbox"
+                        checked={newIsDropship}
+                        onChange={(e) => setNewIsDropship(e.target.checked)}
+                        className="rounded accent-orange-500"
+                      />
+                      <span>Bán Dropship</span>
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-neutral-300 mb-1">Giá vốn sỉ Dropship (VND)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        placeholder="120000"
+                        value={newCostPrice}
+                        onChange={(e) => setNewCostPrice(e.target.value ? Number(e.target.value) : '')}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-neutral-300 mb-1">Link nguồn sỉ / Shopee / TikTok</label>
+                      <input
+                        type="url"
+                        placeholder="https://..."
+                        value={newAffiliateUrl}
+                        onChange={(e) => setNewAffiliateUrl(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono text-[10px] focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                  {newCostPrice && Number(newPrice) > Number(newCostPrice) && (
+                    <p className="text-[10px] text-emerald-400 font-medium">
+                      ✓ Lợi nhuận ròng dự kiến: +{(Number(newPrice) - Number(newCostPrice)).toLocaleString('vi-VN')}₫ / đơn
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-semibold text-neutral-300 mb-1">
                     Link ảnh sản phẩm
@@ -751,9 +802,23 @@ export const SellerStudio: React.FC = () => {
 
                     <div>
                       <h4 className="text-xs font-bold text-white line-clamp-2">{p.title}</h4>
-                      <p className="text-xs font-bold text-orange-400 font-mono mt-1">
-                        {Number(p.price).toLocaleString('vi-VN')}₫
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs font-bold text-orange-400 font-mono">
+                          {Number(p.price).toLocaleString('vi-VN')}₫
+                        </p>
+                        {p.cost_price && (
+                          <span className="text-[10px] font-bold text-emerald-400 font-mono">
+                            Lời: +{Math.max(0, Number(p.price) - Number(p.cost_price)).toLocaleString('vi-VN')}₫
+                          </span>
+                        )}
+                      </div>
+                      {p.is_dropship && (
+                        <div className="mt-1 flex items-center space-x-1">
+                          <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded">
+                            📦 Dropship
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

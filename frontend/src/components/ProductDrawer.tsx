@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Star, ShieldCheck, ShoppingCart, Zap, Plus, Minus, MessageCircle } from 'lucide-react';
+import { X, Star, ShieldCheck, ShoppingCart, Zap, Plus, Minus, MessageCircle, ExternalLink, PackageCheck } from 'lucide-react';
 import type { Product } from '../types';
 
 interface ProductDrawerProps {
@@ -110,9 +110,16 @@ export const ProductDrawer: React.FC<ProductDrawerProps> = ({
                 </div>
               </div>
             </div>
-            <span className="text-[11px] bg-neutral-700 text-neutral-300 px-2 py-1 rounded-md">
-              Cộng đồng khép kín
-            </span>
+            {product.is_dropship ? (
+              <span className="text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                <PackageCheck className="w-3 h-3" />
+                <span>Kho Dropship / Affiliate</span>
+              </span>
+            ) : (
+              <span className="text-[11px] bg-neutral-700 text-neutral-300 px-2 py-1 rounded-md">
+                Cộng đồng khép kín
+              </span>
+            )}
           </div>
 
           {/* Description */}
@@ -157,6 +164,19 @@ export const ProductDrawer: React.FC<ProductDrawerProps> = ({
               <MessageCircle className="w-4 h-4 text-orange-400" />
               <span>Chat hỏi Người Bán về sản phẩm này</span>
             </button>
+          )}
+
+          {/* Affiliate Direct Link to TikTok Shop / Shopee */}
+          {product.affiliate_url && (
+            <a
+              href={product.affiliate_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-pink-500/15 via-rose-500/15 to-purple-500/15 hover:from-pink-500/25 hover:to-purple-500/25 text-pink-300 font-semibold text-xs flex items-center justify-center space-x-2 border border-pink-500/30 transition-all active:scale-95 group"
+            >
+              <ExternalLink className="w-4 h-4 text-pink-400 group-hover:scale-110 transition-transform" />
+              <span>Xem & Mua trên TikTok Shop / Shopee (Affiliate)</span>
+            </a>
           )}
         </div>
 

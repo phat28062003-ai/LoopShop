@@ -18,6 +18,10 @@ class Product(models.Model):
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='tech')
     price = models.DecimalField(max_digits=12, decimal_places=0)  # VND
     original_price = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True)
+    cost_price = models.DecimalField(max_digits=12, decimal_places=0, null=True, blank=True, help_text="Giá vốn nhập / Giá sỉ Dropship (VND)")
+    commission_rate = models.FloatField(default=15.0, help_text="% Hoa hồng Affiliate dự kiến")
+    affiliate_url = models.CharField(max_length=500, blank=True, default='', help_text="Link gốc TikTok Shop / Shopee Affiliate")
+    is_dropship = models.BooleanField(default=True, help_text="Mô hình Dropship/Affiliate không ôm hàng")
     image_url = models.CharField(max_length=500)
     stock = models.PositiveIntegerField(default=100)
     rating = models.FloatField(default=4.9)

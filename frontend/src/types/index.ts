@@ -6,6 +6,10 @@ export interface Product {
   category?: string;
   price: number;
   original_price: number | null;
+  cost_price?: number | null;
+  commission_rate?: number;
+  affiliate_url?: string;
+  is_dropship?: boolean;
   image_url: string;
   stock: number;
   rating: number;

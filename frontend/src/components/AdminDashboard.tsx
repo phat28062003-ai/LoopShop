@@ -35,7 +35,8 @@ import {
   Film,
   AlertTriangle,
   Loader2,
-  ShoppingBag
+  ShoppingBag,
+  PackageCheck
 } from 'lucide-react';
 import type { AdminStats, VideoItem, Report, Order, CRMResponse, Product } from '../types';
 import { api, resolveMediaUrl } from '../services/api';
@@ -121,9 +122,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [prodCategory, setProdCategory] = useState('tech');
   const [prodPrice, setProdPrice] = useState<number>(199000);
   const [prodOriginalPrice, setProdOriginalPrice] = useState<number | ''>(299000);
+  const [prodCostPrice, setProdCostPrice] = useState<number | ''>(120000);
+  const [prodCommissionRate, setProdCommissionRate] = useState<number>(15);
+  const [prodAffiliateUrl, setProdAffiliateUrl] = useState<string>('');
+  const [prodIsDropship, setProdIsDropship] = useState<boolean>(true);
   const [prodStock, setProdStock] = useState<number>(100);
   const [prodSellerName, setProdSellerName] = useState('Phát Official Store');
   const [prodImageUrl, setProdImageUrl] = useState('');
+
+  // 1-Click Dropship Copy Order State
+  const [copiedOrderId, setCopiedOrderId] = useState<number | null>(null);
 
   // Sample images for quick selection in product form
   const sampleProductImages = [
@@ -484,6 +492,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setProdCategory('tech');
     setProdPrice(199000);
     setProdOriginalPrice(299000);
+    setProdCostPrice(120000);
+    setProdCommissionRate(15);
+    setProdAffiliateUrl('');
+    setProdIsDropship(true);
     setProdStock(100);
     setProdSellerName('Phát Official Store');
     setProdImageUrl(sampleProductImages[0].url);
@@ -497,10 +509,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     setProdCategory(p.category || 'tech');
     setProdPrice(Number(p.price));
     setProdOriginalPrice(p.original_price ? Number(p.original_price) : '');
+    setProdCostPrice(p.cost_price ? Number(p.cost_price) : '');
+    setProdCommissionRate(p.commission_rate !== undefined ? Number(p.commission_rate) : 15);
+    setProdAffiliateUrl(p.affiliate_url || '');
+    setProdIsDropship(p.is_dropship !== undefined ? p.is_dropship : true);
     setProdStock(p.stock || 0);
     setProdSellerName(p.seller_name || 'Phát Official Store');
     setProdImageUrl(p.image_url || '');
     setIsProductModalOpen(true);
+  };
+
+  const handleCopyDropshipOrder = (ord: Order) => {
+    const itemsSummary = ord.items && ord.items.length > 0
+      ? ord.items.map(it => `• ${it.quantity}x ${it.product_title} (${Number(it.price).toLocaleString('vi-VN')}₫)`).join('\n')
+      : '• 1x Đơn hàng LoopShop';
+
+    const textToCopy = `📦 THÔNG TIN ĐƠN GIAO HÀNG DROPSHIP LOOPSHOP [Mã: ${ord.order_code}]
+👤 Người nhận: ${ord.customer_name}
+📞 Số điện thoại: ${ord.customer_phone}
+📍 Địa chỉ giao hàng: ${ord.shipping_address}
+🛒 Danh sách sản phẩm:
+${itemsSummary}
+💰 Tiền thu hộ COD: ${ord.is_paid ? '0đ (Khách ĐÃ THANH TOÁN chuyển khoản VietQR cho Shop)' : `${Number(ord.total_amount).toLocaleString('vi-VN')}₫ (Khách chưa trả tiền)`}
+📝 Ghi chú: ${ord.note || 'Giao hàng giờ hành chính'}`;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = textToCopy;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    setCopiedOrderId(ord.id);
+    setTimeout(() => setCopiedOrderId(null), 3000);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -522,6 +567,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         category: prodCategory,
         price: prodPrice,
         original_price: prodOriginalPrice ? Number(prodOriginalPrice) : undefined,
+        cost_price: prodCostPrice ? Number(prodCostPrice) : undefined,
+        commission_rate: Number(prodCommissionRate) || 0,
+        affiliate_url: prodAffiliateUrl.trim(),
+        is_dropship: prodIsDropship,
         stock: Number(prodStock) || 0,
         seller_name: prodSellerName.trim() || 'Phát Official Store',
         image_url: prodImageUrl.trim() || sampleProductImages[0].url,
@@ -1338,6 +1387,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </button>
               </div>
             </div>
+
+            {/* TikTok Shop Affiliate & Dropshipping Operating Banner */}
+            {(() => {
+              const estimatedDropshipProfit = orders.reduce((sum, ord) => {
+                if (ord.status === 'cancelled') return sum;
+                const orderProfit = ord.items?.reduce((itemSum, it) => {
+                  const matched = products.find(p => p.title === it.product_title || p.id === it.product_id);
+                  const cost = matched?.cost_price ? Number(matched.cost_price) : Number(it.price) * 0.65;
+                  return itemSum + Math.max(0, (Number(it.price) - cost) * it.quantity);
+                }, 0) || (Number(ord.total_amount) * 0.35);
+                return sum + orderProfit;
+              }, 0);
+
+              return (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/70 via-neutral-900 to-neutral-900 border border-purple-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <PackageCheck className="w-5 h-5 text-purple-400" />
+                      <h3 className="text-sm font-bold text-white">
+                        Mô hình TikTok Shop Affiliate & Dropshipping (Không cần vốn ôm hàng)
+                      </h3>
+                      <span className="bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-500/30">
+                        Đang kích hoạt
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-300 leading-relaxed max-w-2xl">
+                      Khách xem video và chốt đơn quét <strong>VietQR</strong> trực tiếp về STK của <strong>Lữ Tiến Phát (VietinBank 93287556868)</strong>. Bạn dùng tính năng <strong>1-Click Copy</strong> trong mục Đơn Hàng để đặt từ nguồn hàng sỉ/Shopee giao thẳng cho khách mà không cần ôm hàng tồn!
+                    </p>
+                  </div>
+
+                  <div className="flex items-center space-x-4 bg-neutral-950/80 p-3 rounded-xl border border-purple-500/30 flex-shrink-0">
+                    <div>
+                      <div className="text-[10px] text-neutral-400 uppercase font-semibold">Ước tính Lợi Nhuận Ròng Dropship</div>
+                      <div className="text-lg font-black text-emerald-400 font-mono">
+                        +{Math.round(estimatedDropshipProfit).toLocaleString('vi-VN')}₫
+                      </div>
+                      <div className="text-[10px] text-purple-300 font-medium">Biên lợi nhuận ~35-40% / đơn</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Safety & Legal Note for Admin */}
             <div className="bg-gradient-to-r from-rose-950/40 via-neutral-900 to-amber-950/30 p-4 rounded-2xl border border-rose-900/50 flex items-start space-x-3">
@@ -2257,8 +2348,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                               }}
                             />
                             {/* Category Badge */}
-                            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white border border-white/10">
-                              {catLabel}
+                            <div className="absolute top-2 left-2 flex flex-col space-y-1">
+                              <span className="bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-semibold text-white border border-white/10">
+                                {catLabel}
+                              </span>
+                              {p.is_dropship && (
+                                <span className="bg-purple-900/80 border border-purple-500/50 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold text-purple-200">
+                                  📦 Dropship / Affiliate
+                                </span>
+                              )}
                             </div>
                             {/* Stock Badge */}
                             <div className="absolute top-2 right-2">
@@ -2316,6 +2414,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                               <span className="mx-1">•</span>
                               <span>Đã bán {p.sold_count || 0}</span>
                             </div>
+                          </div>
+
+                          {/* Dropship & Profit Box */}
+                          <div className="p-2.5 rounded-xl bg-neutral-950/80 border border-neutral-800 space-y-1.5 text-[11px]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-neutral-400">Giá vốn Dropship:</span>
+                              <span className="font-mono text-neutral-300">
+                                {p.cost_price ? `${Number(p.cost_price).toLocaleString('vi-VN')}₫` : 'Chưa nhập'}
+                              </span>
+                            </div>
+                            {p.cost_price && (
+                              <div className="flex items-center justify-between">
+                                <span className="text-emerald-400 font-semibold">Lợi nhuận ròng đút túi:</span>
+                                <span className="font-mono font-bold text-emerald-400">
+                                  +{Math.max(0, Number(p.price) - Number(p.cost_price)).toLocaleString('vi-VN')}₫ / sp
+                                </span>
+                              </div>
+                            )}
+                            {p.commission_rate !== undefined && (
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="text-neutral-400">Hoa hồng Affiliate:</span>
+                                <span className="text-purple-300 font-bold">{p.commission_rate}%</span>
+                              </div>
+                            )}
+                            {p.affiliate_url && (
+                              <a
+                                href={p.affiliate_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-1 flex items-center justify-center space-x-1 py-1 px-2 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-semibold transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3 text-pink-400" />
+                                <span>Nguồn hàng sỉ / TikTok / Shopee</span>
+                              </a>
+                            )}
                           </div>
                         </div>
 
@@ -2405,9 +2538,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                           Ghi chú: {ord.note}
                         </p>
                       )}
+
+                      {/* Dropship Order Items List */}
+                      {ord.items && ord.items.length > 0 && (
+                        <div className="pt-1.5 flex flex-wrap gap-1.5 items-center text-[11px]">
+                          <span className="text-neutral-400 font-semibold">Sản phẩm:</span>
+                          {ord.items.map((it, idx) => (
+                            <span key={idx} className="bg-neutral-800/90 border border-neutral-700/60 px-2 py-0.5 rounded text-neutral-200">
+                              {it.quantity}x {it.product_title} ({Number(it.price).toLocaleString('vi-VN')}₫)
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
+                    <div className="flex flex-wrap items-center gap-2.5 self-end md:self-auto">
+                      {/* 1-Click Dropship Copy Button */}
+                      <button
+                        onClick={() => handleCopyDropshipOrder(ord)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow cursor-pointer ${
+                          copiedOrderId === ord.id
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40'
+                        }`}
+                        title="Copy tên, SĐT, địa chỉ và món hàng để dán vào TikTok/Shopee/giao hàng ship thẳng cho khách"
+                      >
+                        {copiedOrderId === ord.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>Đã copy giao hàng!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>📋 1-Click Copy gửi hàng Dropship</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Source supplier link if available */}
+                      {(() => {
+                        const matchedProd = ord.items?.[0] ? products.find(p => p.title === ord.items[0].product_title || p.id === ord.items[0].product_id) : null;
+                        if (matchedProd?.affiliate_url) {
+                          return (
+                            <a
+                              href={matchedProd.affiliate_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1.5 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 border border-pink-500/30 text-xs font-semibold flex items-center space-x-1"
+                              title="Mở nguồn sỉ Shopee / TikTok Shop để đặt hàng giao cho khách"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>Nguồn sỉ đặt hàng</span>
+                            </a>
+                          );
+                        }
+                        return null;
+                      })()}
+
                       {/* Status selector */}
                       <div className="flex items-center space-x-1.5">
                         <span className="text-[11px] text-neutral-400">Tiến độ:</span>
@@ -2998,6 +3186,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
                   />
                 </div>
+              </div>
+
+              {/* Cấu hình TikTok Shop Dropship & Affiliate */}
+              <div className="p-3 bg-purple-950/20 rounded-2xl border border-purple-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <PackageCheck className="w-4 h-4 text-purple-400" />
+                    <span className="font-bold text-white text-xs">Cấu hình Dropship & Affiliate</span>
+                  </div>
+                  <label className="flex items-center space-x-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={prodIsDropship}
+                      onChange={(e) => setProdIsDropship(e.target.checked)}
+                      className="rounded accent-purple-500 w-3.5 h-3.5"
+                    />
+                    <span className="text-[11px] text-purple-300 font-medium">Bán Dropship (không ôm hàng)</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      Giá vốn nhập sỉ / Dropship (VND)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      placeholder="Ví dụ: 120000"
+                      value={prodCostPrice}
+                      onChange={(e) => setProdCostPrice(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-neutral-300 font-semibold mb-1">
+                      % Hoa hồng Affiliate (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={prodCommissionRate}
+                      onChange={(e) => setProdCommissionRate(Number(e.target.value))}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-neutral-300 font-semibold mb-1">
+                    Link nguồn hàng sỉ / Shopee / TikTok Shop (URL)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://shopee.vn/... hoặc https://shop.tiktok.com/..."
+                    value={prodAffiliateUrl}
+                    onChange={(e) => setProdAffiliateUrl(e.target.value)}
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-white font-mono text-[11px] placeholder-neutral-500 focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                {/* Live Profit Preview */}
+                {prodCostPrice && Number(prodPrice) > Number(prodCostPrice) && (
+                  <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between text-[11px]">
+                    <span className="text-emerald-300 font-semibold">Ước tính lợi nhuận ròng đút túi:</span>
+                    <span className="font-mono font-bold text-emerald-400">
+                      +{ (Number(prodPrice) - Number(prodCostPrice)).toLocaleString('vi-VN') }₫ / đơn
+                      ({ Math.round(((Number(prodPrice) - Number(prodCostPrice)) / Number(prodPrice)) * 100) }%)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Ảnh sản phẩm + Kho ảnh mẫu chọn nhanh */}
